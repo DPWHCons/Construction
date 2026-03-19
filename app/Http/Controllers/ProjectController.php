@@ -928,9 +928,6 @@ class ProjectController extends Controller
     {
         $imageIds = $request->input('image_ids', $request->input('imageIds', []));
         
-        // Log the incoming data for debugging
-        \Log::info('Restore images request received', ['image_ids' => $imageIds]);
-        
         if (empty($imageIds)) {
             \Log::warning('No image IDs provided for restoration');
             return response()->json([

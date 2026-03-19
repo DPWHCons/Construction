@@ -6,9 +6,7 @@ import { router } from '@inertiajs/react';
 import { showRestoreConfirmation, showDeleteConfirmation, showSuccessToast, showErrorToast, showInfoToast } from '@/Utils/alerts';
 
 export default function Archive({ archivedImages }) {
-    console.log('Archive component mounting...');
     const { archivedProjects, archivedCategories, archivedContractors } = usePage().props;
-    console.log('Archive props:', { archivedProjects, archivedCategories, archivedContractors });
     const page = usePage(); // Get page props at component level
     const [activeTab, setActiveTab] = useState('images'); // images, categories, contractors, projects
     const [selectedImage, setSelectedImage] = useState(null);
