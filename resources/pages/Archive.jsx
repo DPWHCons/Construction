@@ -145,7 +145,6 @@ export default function Archive({ archivedImages }) {
         
         if (result.isConfirmed) {
             try {
-                // Extract image IDs from selected indices
                 const allImages = getAllArchivedImages();
                 const imageIds = Array.from(modalSelectedImages).map(index => allImages[index]?.id).filter(id => id);
                 
