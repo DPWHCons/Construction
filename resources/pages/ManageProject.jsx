@@ -1,8 +1,8 @@
-import PageLayout from '@/Layouts/PageLayout';
 import { Head, router } from '@inertiajs/react';
+import PageLayout from '@/Layouts/PageLayout';
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { showErrorMessage, showSuccessMessage } from '@/Utils/alerts';
+import { showErrorMessage, showSuccessMessage, showProjectArchiveConfirmation } from '@/Utils/alerts';
 import CreateProjectModal from '@/Components/CreateProjectModal';
 import EditProjectModal from '@/Components/EditProjectModal';
 import ProjectDetailsModal from '@/Components/ProjectDetailsModal';
@@ -11,7 +11,9 @@ import ImportModal from '@/Components/ImportModal';
 import DPWHLoading from '@/Components/DPWHLoading';
 import useAutoRefresh from '@/Hooks/useAutoRefresh';
 
-export default function ManageProject({ projects, categories, availableLetters }) {
+export default function ManageProject({ projects, categories, letters, dpwhProjects, dpwhCategories, dpwhLetters, dpwhEngineers, dpwhContractors, dpwhImages }) {
+    console.log('ManageProject component mounting...');
+    console.log('Projects data:', projects);
     const urlParams = new URLSearchParams(window.location.search);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -271,6 +273,57 @@ export default function ManageProject({ projects, categories, availableLetters }
         if (!Array.isArray(projects) || projects.length === 0) return 0;
         const completed = projects.filter(p => p.status === 'completed').length;
         return Math.round((completed / projects.length) * 100);
+    };
+
+    const handleArchiveProject = async (project) => {
+        console.log('Attempting to archive project:', project.title, 'ID:', project.id);
+        
+        // Debug: Check if route exists
+        console.log('Route check:', route().has('projects.archive'));
+        console.log('Route URL:', route('projects.archive', project.id));
+        
+        const result = await showProjectArchiveConfirmation(project.title);
+        console.log('Confirmation result:', result);
+        
+        if (result.isConfirmed) {
+            try {
+                console.log('Sending archive request to:', route('projects.archive', project.id));
+                const response = await axios.post(route('projects.archive', project.id));
+                console.log('Archive response:', response.data);
+                
+                if (response.data.success) {
+                    showSuccessMessage('Success', response.data.message);
+                    // Update local project data
+                    updateProjectData({ ...project, is_archive: true });
+                    // Remove from current view after a short delay
+                    setTimeout(() => {
+                        setProjectData(prev => prev.filter(p => p.id !== project.id));
+                    }, 1000);
+                } else {
+                    console.error('Archive failed with response:', response.data);
+                    showErrorMessage('Error', response.data.message || 'Failed to archive project');
+                }
+            } catch (error) {
+                console.error('Archive error:', error);
+                console.error('Error response:', error.response?.data);
+                showErrorMessage('Error', error.response?.data?.message || 'Failed to archive project');
+            }
+        } else {
+            console.log('Archive cancelled by user');
+        }
+    };
+
+    const handleUnarchiveProject = async (project) => {
+        try {
+            const response = await axios.post(route('projects.unarchive', project.id));
+            if (response.data.success) {
+                showSuccessMessage('Success', response.data.message);
+                // Update local project data
+                updateProjectData({ ...project, is_archive: false });
+            }
+        } catch (error) {
+            showErrorMessage('Error', error.response?.data?.message || 'Failed to unarchive project');
+        }
     };
 
     const handleExport = async () => {
@@ -613,6 +666,7 @@ export default function ManageProject({ projects, categories, availableLetters }
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
                                                     {projectsInCategory.map((project, index) => {
+                                                        console.log('Rendering project:', project.title, 'ID:', project.id);
                                                         const contract = project.contracts?.[0] || {};
 
                                                         return (
@@ -630,10 +684,12 @@ export default function ManageProject({ projects, categories, availableLetters }
                                                                     {project.project_year || '-'}
                                                                 </td>
                                                                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                                    <div className="flex items-center justify-center gap-3" onClick={(e) => e.stopPropagation()}>
+                                                                    <div className="flex items-center justify-center gap-3">
+                                                                        {console.log('Rendering Actions column for project:', project.title)}
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
+                                                                                e.preventDefault();
                                                                                 handleViewDetails(project);
                                                                             }}
                                                                             className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium shadow-sm"
@@ -647,6 +703,7 @@ export default function ManageProject({ projects, categories, availableLetters }
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
+                                                                                e.preventDefault();
                                                                                 handleEditProject(project);
                                                                             }}
                                                                             className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm"
@@ -655,6 +712,21 @@ export default function ManageProject({ projects, categories, availableLetters }
                                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                                             </svg>
                                                                             Edit
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                e.preventDefault();
+                                                                                handleArchiveProject(project);
+                                                                            }}
+                                                                            className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium shadow-sm cursor-pointer"
+                                                                            style={{ pointerEvents: 'auto', backgroundColor: 'orange', border: '2px solid red' }}
+                                                                        >
+                                                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                                                            </svg>
+                                                                            Archive
                                                                         </button>
                                                                     </div>
                                                                 </td>

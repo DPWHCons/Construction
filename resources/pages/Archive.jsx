@@ -6,9 +6,11 @@ import { router } from '@inertiajs/react';
 import { showRestoreConfirmation, showDeleteConfirmation, showSuccessToast, showErrorToast, showInfoToast } from '@/Utils/alerts';
 
 export default function Archive({ archivedImages }) {
-    const { archivedCategories, archivedContractors } = usePage().props;
+    console.log('Archive component mounting...');
+    const { archivedProjects, archivedCategories, archivedContractors } = usePage().props;
+    console.log('Archive props:', { archivedProjects, archivedCategories, archivedContractors });
     const page = usePage(); // Get page props at component level
-    const [activeTab, setActiveTab] = useState('images'); // images, categories, contractors
+    const [activeTab, setActiveTab] = useState('images'); // images, categories, contractors, projects
     const [selectedImage, setSelectedImage] = useState(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [expandedProjects, setExpandedProjects] = useState(new Set());
@@ -460,6 +462,250 @@ export default function Archive({ archivedImages }) {
     };
 
     
+    // Archived Projects Component
+    const ArchivedProjectsContent = ({ archivedProjects }) => {
+        const [searchTerm, setSearchTerm] = useState('');
+
+        const handleSearch = (term) => {
+            setSearchTerm(term);
+            router.get(route('archive.index'), {
+                search: term || null
+            }, { preserveState: true, replace: true });
+        };
+
+        const handleRestore = async (project) => {
+            try {
+                const result = await showRestoreConfirmation(project.title);
+                
+                if (result.isConfirmed) {
+                    router.post(route('archive.projects.restore', project.id), {}, {
+                        onSuccess: () => {
+                            showSuccessToast(`Project "${project.title}" restored successfully!`);
+                        },
+                        onError: (errors) => {
+                            showErrorToast('Failed to restore project. Please try again.');
+                        }
+                    });
+                }
+            } catch (error) {
+                showErrorToast('An unexpected error occurred. Please try again.');
+            }
+        };
+
+        const handlePermanentDelete = async (project) => {
+            try {
+                const result = await showDeleteConfirmation(project.title, 'project');
+                
+                if (result.isConfirmed) {
+                    router.delete(route('archive.projects.delete', project.id), {}, {
+                        onSuccess: () => {
+                            showSuccessToast(`Project "${project.title}" permanently deleted!`);
+                        },
+                        onError: (errors) => {
+                            showErrorToast('Failed to delete project. Please try again.');
+                        }
+                    });
+                }
+            } catch (error) {
+                showErrorToast('An unexpected error occurred. Please try again.');
+            }
+        };
+
+        return (
+            <div>
+                {/* Search for Projects */}
+                <div className="p-4 mb-6">
+                    <div className="flex items-center justify-between">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Search archived projects..."
+                                value={searchTerm}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent font-montserrat text-sm w-64"
+                            />
+                        </div>
+                        <div className="text-sm text-slate-600">
+                            {archivedProjects?.total || 0} archived projects
+                        </div>
+                    </div>
+                </div>
+
+                {/* Archived Projects Table */}
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                    {(!archivedProjects?.data || archivedProjects.data.length === 0) ? (
+                        <div className="text-center py-12">
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
+                                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-semibold text-slate-600 mt-4">No Archived Projects</h3>
+                            <p className="text-slate-500 mt-2">Projects that you archive will appear here for recovery.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left bg-white">
+                                {/* Header */}
+                                <thead className="bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
+                                            Project Name
+                                        </th>
+                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
+                                            Category
+                                        </th>
+                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
+                                            Archived Date
+                                        </th>
+                                        <th className="px-6 py-4 text-center font-semibold text-slate-700 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                {/* Body */}
+                                <tbody className="divide-y divide-slate-100">
+                                    {archivedProjects.data.map((project) => (
+                                        <tr
+                                            key={project.id}
+                                            className="hover:bg-slate-50 transition-colors border-b border-slate-100"
+                                        >
+                                            {/* Project Name */}
+                                            <td className="px-6 py-4">
+                                                <div className="font-semibold text-slate-900">{project.title}</div>
+                                            </td>
+
+                                            {/* Category */}
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {project.category?.name || 'Uncategorized'}
+                                            </td>
+
+                                            {/* Status */}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                    project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                                                    project.status === 'ongoing' ? 'bg-green-100 text-green-800' :
+                                                    project.status === 'pending' ? 'bg-red-100 text-red-800' :
+                                                    'bg-gray-100 text-gray-800'
+                                                }`}>
+                                                    {project.status}
+                                                </span>
+                                            </td>
+
+                                            {/* Archived Date */}
+                                            <td className="px-6 py-4 whitespace-nowrap text-slate-600">
+                                                {new Date(project.updated_at).toLocaleDateString()}
+                                            </td>
+
+                                            {/* Actions */}
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <button
+                                                        onClick={() => handleRestore(project)}
+                                                        className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm"
+                                                    >
+                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                                        </svg>
+                                                        Restore
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handlePermanentDelete(project)}
+                                                        className="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium shadow-sm"
+                                                    >
+                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                        Delete Forever
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* Pagination for Projects */}
+                    {archivedProjects?.data && archivedProjects.data.length > 0 && (
+                        <div className="mt-6 flex items-center justify-between">
+                            <div className="text-sm text-slate-600">
+                                Showing {archivedProjects.from || 1} to {archivedProjects.to || (archivedProjects?.data?.length || 0)} of {archivedProjects.total || 0} archived projects
+                            </div>
+                            <div className="flex items-center justify-center gap-2">
+                                {/* Previous Button */}
+                                <Link
+                                    href={archivedProjects.prev_page_url || '#'}
+                                    className={`p-2 rounded-lg border transition font-montserrat text-sm font-medium ${
+                                        archivedProjects.prev_page_url
+                                            ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                                            : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                    }`}
+                                    preserveScroll
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </Link>
+
+                                {/* Page Numbers */}
+                                <div className="flex items-center gap-1">
+                                    {archivedProjects.links?.map((link, index) => {
+                                        // Skip first and last links (they are arrow buttons)
+                                        if (index === 0 || index === archivedProjects.links.length - 1) {
+                                            return null;
+                                        }
+                                        if (link.label === '...' || !link.url) {
+                                            return (
+                                                <span key={index} className="px-3 py-2 text-slate-500">
+                                                    {link.label}
+                                                </span>
+                                            );
+                                        }
+                                        return (
+                                            <Link
+                                                key={index}
+                                                href={link.url || '#'}
+                                                className={`px-3 py-2 rounded-lg border transition font-montserrat text-sm font-medium ${
+                                                    link.active
+                                                        ? "bg-[#Eb3505] text-white border-[#Eb3505]"
+                                                        : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                                                }`}
+                                                preserveScroll
+                                            >
+                                                {link.label}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Next Button */}
+                                <Link
+                                    href={archivedProjects.next_page_url || '#'}
+                                    className={`p-2 rounded-lg border transition font-montserrat text-sm font-medium ${
+                                        archivedProjects.next_page_url
+                                            ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                                            : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                    }`}
+                                    preserveScroll
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </Link>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     // Archived Categories Component
     const ArchivedCategoriesContent = ({ archivedCategories }) => {
         const [searchTerm, setSearchTerm] = useState('');
@@ -935,7 +1181,7 @@ export default function Archive({ archivedImages }) {
                 <div className="sticky top-0 z-30">
                     <div className="max-w-7xl mx-auto px-6 py-4">
                         <div className="flex gap-2">
-                            {['images', 'categories', 'contractors'].map((tab) => (
+                            {['images', 'projects', 'categories', 'contractors'].map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -945,7 +1191,7 @@ export default function Archive({ archivedImages }) {
                                             : 'bg-gray-100 text-[#010066] hover:bg-gray-200'
                                     }`}
                                 >
-                                    {tab === 'images' ? 'Archived Images' : tab === 'categories' ? 'Archived Categories' : 'Archived Contractors'}
+                                    {tab === 'images' ? 'Archived Images' : tab === 'projects' ? 'Archived Projects' : tab === 'categories' ? 'Archived Categories' : 'Archived Contractors'}
                                 </button>
                             ))}
                         </div>
@@ -1297,6 +1543,9 @@ export default function Archive({ archivedImages }) {
                             )}
                         </div>
                     </div>
+                ) : activeTab === 'projects' ? (
+                    /* Projects Content */
+                    <ArchivedProjectsContent archivedProjects={archivedProjects} />
                 ) : activeTab === 'categories' ? (
                     /* Categories Content */
                     <ArchivedCategoriesContent archivedCategories={archivedCategories} />

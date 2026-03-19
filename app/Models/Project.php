@@ -19,6 +19,7 @@ class Project extends Model
         'revised_project_cost',
         'program_amount',
         'status',
+        'is_archive',
         'completion_date',
         'category_id',
         'project_year',
@@ -32,6 +33,7 @@ class Project extends Model
         'project_cost' => 'decimal:2',
         'revised_project_cost' => 'decimal:2',
         'program_amount' => 'decimal:2',
+        'is_archive' => 'boolean',
     ];
 
     public function category(): BelongsTo

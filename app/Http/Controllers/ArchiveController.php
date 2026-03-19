@@ -32,6 +32,22 @@ class ArchiveController extends Controller
         
         $archivedImages = $imagesQuery->paginate(20);
         
+        // Get archived projects
+        $projectsQuery = \App\Models\Project::where('is_archive', true)
+            ->with(['category', 'scope', 'progress', 'remarks', 'assignedEngineers', 'images'])
+            ->orderBy('updated_at', 'desc'); // Most recently updated first
+        
+        if ($search) {
+            $projectsQuery->where(function($query) use ($search) {
+                $query->where('title', 'like', '%' . $search . '%')
+                      ->orWhereHas('category', function($categoryQuery) use ($search) {
+                          $categoryQuery->where('name', 'like', '%' . $search . '%');
+                      });
+            });
+        }
+        
+        $archivedProjects = $projectsQuery->paginate(10);
+        
         // Format images for frontend
         $formattedImages = collect($archivedImages->getCollection()->map(function ($image) {
             return [
@@ -78,6 +94,7 @@ class ArchiveController extends Controller
         
         return Inertia::render('Archive', [
             'archivedImages' => $formattedImages,
+            'archivedProjects' => $archivedProjects,
             'archivedCategories' => $archivedCategories,
             'archivedContractors' => $archivedContractors,
         ]);
@@ -110,6 +127,74 @@ class ArchiveController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to restore categories: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Restore an archived project
+     */
+    public function restoreProject(Request $request, $id)
+    {
+        try {
+            DB::beginTransaction();
+            
+            $project = Project::findOrFail($id);
+            $project->update([
+                'is_archive' => false,
+            ]);
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Project restored successfully',
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to restore project: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Permanently delete an archived project
+     */
+    public function deleteProject(Request $request, $id)
+    {
+        try {
+            DB::beginTransaction();
+            
+            $project = Project::findOrFail($id);
+            
+            // Delete associated images and their files
+            foreach ($project->images as $image) {
+                if ($image->image_path && Storage::disk('public')->exists($image->image_path)) {
+                    Storage::disk('public')->delete($image->image_path);
+                }
+                $image->delete();
+            }
+            
+            // Delete the project
+            $project->delete();
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Project permanently deleted',
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete project: ' . $e->getMessage(),
             ], 500);
         }
     }

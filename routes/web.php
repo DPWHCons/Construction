@@ -41,8 +41,8 @@ Route::middleware(['auth', 'session.activity'])->group(function () {
     
     // Project CRUD Routes
     Route::resource('projects', ProjectController::class);
-    Route::post('/projects/{project}/upload-images', [ProjectController::class, 'uploadImages'])->name('projects.upload-images');
-    Route::delete('/projects/{project}/images/{imageId}', [ProjectController::class, 'deleteImage'])->name('projects.delete-image');
+    Route::post('/projects/{id}/archive', [ProjectController::class, 'archiveProject'])->name('projects.archive');
+    Route::post('/projects/{id}/unarchive', [ProjectController::class, 'unarchiveProject'])->name('projects.unarchive');
 
     // Contractor Routes
     Route::resource('contractors', ContractorController::class)->parameters([
@@ -58,6 +58,10 @@ Route::middleware(['auth', 'session.activity'])->group(function () {
     Route::get('/archive', [ArchiveController::class, 'index'])->name('archive.index');
     Route::post('/archive/restore', [ProjectController::class, 'restoreImages'])->name('archive.restore');
     Route::post('/archive/permanent-delete', [ProjectController::class, 'permanentDeleteImages'])->name('archive.permanent-delete');
+    
+    // Project Archive Routes
+    Route::post('/archive/projects/{id}/restore', [ArchiveController::class, 'restoreProject'])->name('archive.projects.restore');
+    Route::delete('/archive/projects/{id}', [ArchiveController::class, 'deleteProject'])->name('archive.projects.delete');
     
     // Bulk Archive Operations
     Route::post('/archive/categories/restore-all', [ArchiveController::class, 'restoreAllCategories'])->name('archive.categories.restore-all');

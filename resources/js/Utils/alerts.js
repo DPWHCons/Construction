@@ -122,6 +122,28 @@ export const showDeleteConfirmation = (itemName, itemType = 'item') => {
     });
 };
 
+export const showProjectArchiveConfirmation = (projectName) => {
+    return appleSwal.fire({
+        title: 'Archive Project?',
+        text: `Are you sure to archive this project?\n\n"${projectName}"`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Archive',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        customClass: {
+            popup: 'rounded-2xl shadow-[0_30px_80px_rgba(0,0,0,0.22)] border border-black/5 bg-white/95 backdrop-blur-md',
+            title: 'text-[17px] font-semibold text-slate-900 tracking-[-0.01em] font-sans',
+            htmlContainer: 'text-[13px] leading-5 text-slate-600 text-left font-sans',
+            actions: 'gap-2 mt-5',
+            confirmButton:
+                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-colors',
+            cancelButton:
+                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors',
+        },
+    });
+};
+
 export const showArchiveConfirmation = (itemName, projectCount = 0) => {
     const hasProjects = projectCount > 0;
     
@@ -257,7 +279,10 @@ export const showErrorMessage = (title, message) => {
         timerProgressBar: true,
         showConfirmButton: false,
         customClass: {
-            ...appleSwal.options.customClass,
+            popup: 'rounded-2xl shadow-[0_30px_80px_rgba(0,0,0,0.22)] border border-black/5 bg-white/95 backdrop-blur-md',
+            title: 'text-[17px] font-semibold text-slate-900 tracking-[-0.01em] font-sans',
+            htmlContainer: 'text-[13px] leading-5 text-slate-600 text-left font-sans',
+            actions: 'gap-2 mt-5',
             confirmButton:
                 'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-900 text-white hover:bg-black transition-colors',
         },

@@ -29,7 +29,7 @@ class ProjectController extends Controller
             'assignedEngineers',
             'images',
             'category',
-        ]);
+        ])->where('is_archive', false);
 
         // Enhanced search across multiple fields
         if ($request->search) {
@@ -65,7 +65,7 @@ class ProjectController extends Controller
         }
 
         // Get available letters for alphabetical pagination
-        $availableLettersQuery = Project::query();
+        $availableLettersQuery = Project::where('is_archive', false);
         
         // Apply the same filters to available letters query
         if ($request->search) {
@@ -1033,6 +1033,52 @@ class ProjectController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete images: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Archive a project.
+     */
+    public function archiveProject(Project $project)
+    {
+        try {
+            $project->update([
+                'is_archive' => true,
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Project archived successfully'
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to archive project: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Unarchive a project.
+     */
+    public function unarchiveProject(Project $project)
+    {
+        try {
+            $project->update([
+                'is_archive' => false,
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Project unarchived successfully'
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to unarchive project: ' . $e->getMessage()
             ], 500);
         }
     }
