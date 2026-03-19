@@ -1,0 +1,26 @@
+/* DPWH Loading Animations */
+@keyframes spin-slow {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin-slow {
+    animation: spin-slow 2s linear infinite;
+}
+
+@keyframes dash-offset {
+    from {
+        stroke-dashoffset: 0;
+    }
+    to {
+        stroke-dashoffset: -353;
+    }
+}
+
+.animate-dash-offset {
+    animation: dash-offset 1.5s linear infinite;
+}
