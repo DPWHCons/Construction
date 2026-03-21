@@ -1,10 +1,12 @@
 import PageLayout from '@/Layouts/PageLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useAutoRefresh from '@/Hooks/useAutoRefresh';
+import FeedbackAlert from '@/Components/FeedbackAlert';
 
 export default function Dashboard() {
     const { auth, stats, monthlyData, recentProjects, selectedYear: initialYear } = usePage().props;
+    const [showSuccessToast, setShowSuccessToast] = useState(false);
 
         // State for year filter
     const [selectedYear, setSelectedYear] = useState(initialYear || 'all');
@@ -12,6 +14,19 @@ export default function Dashboard() {
         setSelectedYear(year);
         window.location.href = route('dashboard', { year: year === 'all' ? null : year });
     };
+
+    // Show success toast on component mount if user just logged in
+    useEffect(() => {
+        // Check URL parameter for login success
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('login') === 'success') {
+            setShowSuccessToast(true);
+            
+            // Clean URL without page reload
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
+    }, []);
 
     // Auto-refresh dashboard stats every 10 seconds
     useAutoRefresh(10000, {
@@ -52,6 +67,17 @@ export default function Dashboard() {
     return (
         <PageLayout>
             <Head title="Dashboard" />
+            
+            {/* Success Toast */}
+            <FeedbackAlert
+                show={showSuccessToast}
+                type="success"
+                title="Login Successful"
+                message="Welcome"
+                duration={3000}
+                onClose={() => setShowSuccessToast(false)}
+            />
+            
             <div className="space-y-8">
                 {/* Welcome Section */}
                 <div className="flex items-center justify-between">
@@ -110,7 +136,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4" style={{marginTop: '1rem'}}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4" style={{marginTop: '.5rem'}}>
                     {/* Total Projects Card */}
                     <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-slate-200 relative group hover:shadow-xl transition-all">
                         <div className="flex justify-between items-start mb-4">
@@ -122,21 +148,12 @@ export default function Dashboard() {
                         </div>
                         <div className="space-y-1">
                             <h3 className="text-4xl font-black text-slate-900 font-montserrat tracking-tight">{safeStats.totalProjects}</h3>
-                            <p className="text-sm font-semibold text-slate-500 font-montserrat">Total Projects</p>
-                        </div>
-                        <div className="mt-4">
-                            <div className="w-full bg-slate-200 h-2 rounded-full">
-                                <div
-                                    className="bg-indigo-500 h-2 rounded-full transition-all duration-500"
-                                    style={{ width: `${Math.max(5, (safeStats.completedProjects / safeStats.totalProjects) * 100)}%` }}
-                                ></div>
-                            </div>
-                            <p className="text-xs text-slate-500 mt-1">{Math.round((safeStats.completedProjects / safeStats.totalProjects) * 100) || 0}% Completed</p>
+                            <p className="text-sm font-bold font-montserrat" style={{color: '#010066'}}>Total Projects</p>
                         </div>
                     </div>
 
                     {/* Completed Projects Card */}
-                    <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-slate-200 relative group hover:shadow-xl transition-all">
+                    <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-slate-200 relative group hover:shadow-xl transition-all" >
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 transition-colors group-hover:bg-blue-100">
                                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,15 +163,7 @@ export default function Dashboard() {
                         </div>
                         <div className="space-y-1">
                             <h3 className="text-4xl font-black text-slate-900 font-montserrat tracking-tight">{safeStats.completedProjects}</h3>
-                            <p className="text-sm font-semibold text-slate-500 font-montserrat">Completed Projects</p>
-                        </div>
-                        <div className="mt-4">
-                            <div className="flex items-center text-xs text-green-600">
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                </svg>
-                                {safeStats.totalProjects > 0 ? Math.round((safeStats.completedProjects / safeStats.totalProjects) * 100) : 0}% of total
-                            </div>
+                            <p className="text-sm font-bold font-montserrat" style={{color: '#010066'}}>Completed Projects</p>
                         </div>
                     </div>
 
@@ -169,15 +178,7 @@ export default function Dashboard() {
                         </div>
                         <div className="space-y-1">
                             <h3 className="text-4xl font-black text-slate-900 font-montserrat tracking-tight">{safeStats.ongoingProjects}</h3>
-                            <p className="text-sm font-semibold text-slate-500 font-montserrat">Ongoing Projects</p>
-                        </div>
-                        <div className="mt-4">
-                            <div className="flex items-center text-xs text-orange-600">
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                {safeStats.totalProjects > 0 ? Math.round((safeStats.ongoingProjects / safeStats.totalProjects) * 100) : 0}% of total
-                            </div>
+                            <p className="text-sm font-bold font-montserrat" style={{color: '#010066'}}>Ongoing Projects</p>
                         </div>
                     </div>
 
@@ -192,119 +193,18 @@ export default function Dashboard() {
                         </div>
                         <div className="space-y-1">
                             <h3 className="text-4xl font-black text-slate-900 font-montserrat tracking-tight">{safeStats.pendingProjects}</h3>
-                            <p className="text-sm font-semibold text-slate-500 font-montserrat">Pending Projects</p>
-                        </div>
-                        <div className="mt-4">
-                            <div className="flex items-center text-xs text-red-600">
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                {safeStats.totalProjects > 0 ? Math.round((safeStats.pendingProjects / safeStats.totalProjects) * 100) : 0}% of total
-                            </div>
+                            <p className="text-sm font-bold font-montserrat" style={{color: '#010066'}}>Pending Projects</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Quick Insights and Recent Projects Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                    {/* Quick Insights Card */}
+                {/* Project Status Distribution and Recent Projects Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6" style={{marginTop: '.8rem'}}>
+                    {/* Project Status Distribution Card */}
                     <div className="lg:col-span-2">
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 h-full flex flex-col">
-                            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">Quick Insights</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 flex-1">
-                                <div>
-                                    <p className="text-xs text-slate-500">Projects This Year</p>
-                                    <p className="text-2xl font-bold text-slate-900 mt-1">{safeStats.totalProjects}</p>
-                                    <p className="text-xs text-green-600 mt-1">↑ Active projects</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-slate-500">This Month</p>
-                                    <p className="text-2xl font-bold text-slate-900 mt-1">{Math.round(safeStats.totalProjects / 12) || 0}</p>
-                                    <p className="text-xs text-blue-600 mt-1">Monthly average</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-slate-500">Images Uploaded</p>
-                                    <p className="text-2xl font-bold text-slate-900 mt-1">{safeStats.totalImages}</p>
-                                    <p className="text-xs text-purple-600 mt-1">Documentation</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-slate-500">Completion Rate</p>
-                                    <p className="text-2xl font-bold text-slate-900 mt-1">{Math.round((safeStats.completedProjects / safeStats.totalProjects) * 100) || 0}%</p>
-                                    <p className="text-xs text-green-600 mt-1">Overall success</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Recent Projects Table */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm h-full flex flex-col">
-                            <div className="mb-4">
-                                <h3 className="text-lg font-bold text-slate-800">Recent Projects</h3>
-                            </div>
-                            <div className="overflow-x-auto flex-1">
-                                <table className="w-full h-full">
-                                    <thead>
-                                        <tr className="border-b border-slate-200">
-                                            <th className="text-left py-2 px-2 text-xs font-semibold text-slate-600">Project ID</th>
-                                            <th className="text-left py-2 px-2 text-xs font-semibold text-slate-600">Contract ID</th>
-                                            <th className="text-left py-2 px-2 text-xs font-semibold text-slate-600">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {recentProjects && recentProjects.length > 0 ? (
-                                            recentProjects.slice(0, 3).map((project) => {
-                                                // Map database status to display text and color
-                                                const statusMap = {
-                                                    ongoing: { text: 'Project is Ongoing', color: 'bg-blue-50 text-blue-700' },
-                                                    completed: { text: 'Project is Completed', color: 'bg-green-50 text-green-700' },
-                                                    pending: { text: 'Project is Pending', color: 'bg-yellow-50 text-yellow-700' },
-                                                };
-
-                                                const status = statusMap[project.status] || statusMap.pending;
-
-                                                return (
-                                                    <tr key={project.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                                                        <td className="py-2 px-2">
-                                                            <div className="font-medium text-xs text-slate-900">{project.project_id || `PJ-${project.id}`}</div>
-                                                        </td>
-                                                        <td className="py-2 px-2">
-                                                            <div className="font-medium text-xs text-slate-900">{project.contract_id || `CTR-${project.id}`}</div>
-                                                        </td>
-                                                        <td className="py-2 px-2">
-                                                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>
-                                                                {status.text}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        ) : (
-                                            <tr>
-                                                <td colSpan="3" className="py-4 text-center text-xs text-slate-500">
-                                                    No recent projects found
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Analytics Section */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm mt-6">
-                    <div className="mb-6">
-                        <h3 className="text-xl font-bold text-slate-800">Project Analytics</h3>
-                    </div>
-
-                    {/* Charts Section */}
-                    <div className="grid grid-cols-1 gap-8 mt-8" style={{marginTop: '1rem'}}>
-                        {/* Bar Chart */}
-                        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                            <h4 className="text-lg font-bold text-slate-800 mb-4">Project Status Distribution</h4>
-                            <div className="space-y-4">
+                        <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 h-full flex flex-col shadow-lg relative group hover:shadow-xl transition-all">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4">Project Status Distribution</h3>
+                            <div className="space-y-4 flex-1">
                                 {/* Completed Bar */}
                                 <div>
                                     <div className="flex justify-between text-sm mb-2">
@@ -370,8 +270,65 @@ export default function Dashboard() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Recent Projects Table */}
+                    <div className="lg:col-span-1">
+                        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm h-full flex flex-col">
+                            <div className="mb-4">
+                                <h3 className="text-lg font-bold text-slate-800">Recent Projects</h3>
+                            </div>
+                            <div className="overflow-x-auto flex-1">
+                                <table className="w-full h-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-200">
+                                            <th className="text-left py-2 px-2 text-xs font-semibold text-slate-600">Project ID</th>
+                                            <th className="text-left py-2 px-2 text-xs font-semibold text-slate-600">Contract ID</th>
+                                            <th className="text-left py-2 px-2 text-xs font-semibold text-slate-600">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {recentProjects && recentProjects.length > 0 ? (
+                                            recentProjects.slice(0, 2).map((project) => {
+                                                // Map database status to display text and color
+                                                const statusMap = {
+                                                    ongoing: { text: 'Ongoing'},
+                                                    completed: { text: 'Completed'},
+                                                    pending: { text: 'Pending'},
+                                                };
+
+                                                const status = statusMap[project.status] || statusMap.pending;
+
+                                                return (
+                                                    <tr key={project.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                                                        <td className="py-2 px-2">
+                                                            <div className="font-medium text-xs text-slate-900">{project.project_id || `    ${project.id}`}</div>
+                                                        </td>
+                                                        <td className="py-2 px-2">
+                                                            <div className="font-medium text-xs text-slate-900">{project.contract_id || `${project.id}`}</div>
+                                                        </td>
+                                                        <td className="py-2 px-2">
+                                                            <span className="px-2 py-0.5 text-xs font-medium">
+                                                                {status.text}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="3" className="py-4 text-center text-xs text-slate-500">
+                                                    No recent projects found
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+
+                </div>
         </PageLayout>
     );
 }  

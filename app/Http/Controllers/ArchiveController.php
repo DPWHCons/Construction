@@ -139,7 +139,17 @@ class ArchiveController extends Controller
         try {
             DB::beginTransaction();
             
-            $project = Project::findOrFail($id);
+            // Find the project manually
+            $project = \App\Models\Project::find($id);
+            
+            if (!$project) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Project not found'
+                ], 404);
+            }
+            
             $project->update([
                 'is_archive' => false,
             ]);

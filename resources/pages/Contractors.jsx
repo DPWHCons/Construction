@@ -2,10 +2,16 @@ import PageLayout from '@/Layouts/PageLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
+import FeedbackAlert from '@/Components/FeedbackAlert';
+import { showSuccessToast, showErrorToast } from '@/Utils/alerts';
 
 export default function ContractorsIndex() {
     const { contractors, filters } = usePage().props;
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [archiveAlert, setArchiveAlert] = useState({
+        show: false,
+        contractor: null
+    });
 
     const handleSearch = (term) => {
         setSearchTerm(term);
@@ -14,13 +20,28 @@ export default function ContractorsIndex() {
         }, { preserveState: true, replace: true });
     };
 
-    const handleArchive = async (contractor) => {  
-        if (confirm(`Are you sure you want to remove ${contractor.name} from project scopes?`)) {
-            router.post(route('contractors.archive', contractor.name), {}, {
-                onSuccess: () => {
-                }
-            });
-        }
+    const handleArchive = (contractor) => {
+        setArchiveAlert({
+            show: true,
+            contractor: contractor
+        });
+    };
+
+    const proceedWithArchive = () => {
+        if (!archiveAlert.contractor) return;
+        
+        const contractor = archiveAlert.contractor;
+        
+        router.post(route('contractors.archive', contractor.name), {}, {
+            onSuccess: () => {
+                showSuccessToast(`Contractor "${contractor.name}" removed successfully!`);
+                setArchiveAlert({ show: false, contractor: null });
+            },
+            onError: () => {
+                showErrorToast('Failed to remove contractor. Please try again.');
+                setArchiveAlert({ show: false, contractor: null });
+            }
+        });
     };
 
     return (
@@ -222,6 +243,24 @@ export default function ContractorsIndex() {
                                 </p>
                        </div>
                     )}
+
+                    {/* Remove Confirmation Alert */}
+                    <FeedbackAlert
+                        show={archiveAlert.show}
+                        type="info"
+                        title="Remove Contractor?"
+                        isModal={true}
+                        html={`<p class="text-slate-700">Are you sure you want to remove <span class="font-semibold text-slate-900">"${archiveAlert.contractor?.name}"</span> from project scopes?</p>`}
+                        confirmButtonText="Remove"
+                        cancelButtonText="Cancel"
+                        onConfirm={proceedWithArchive}
+                        onCancel={() => setArchiveAlert({ show: false, contractor: null })}
+                        onClose={() => setArchiveAlert({ show: false, contractor: null })}
+                        customClass={{
+                            confirmButton: 'bg-orange-500 text-white hover:bg-orange-600 shadow-md',
+                            cancelButton: 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+                        }}
+                    />
                 </div>
             </div>
         </PageLayout>

@@ -37,6 +37,8 @@ class ProjectController extends Controller
             $query->where(function($q) use ($searchTerm) {
                 // Search by project title
                 $q->where('title', 'like', '%' . $searchTerm . '%')
+                  // Search by contract ID
+                  ->orWhere('contract_id', 'like', '%' . $searchTerm . '%')
                   // Search by category name
                   ->orWhereHas('category', function($subQuery) use ($searchTerm) {
                       $subQuery->where('name', 'like', '%' . $searchTerm . '%');
@@ -99,8 +101,36 @@ class ProjectController extends Controller
             ->values()
             ->toArray();
 
-        $projects = $query->orderBy('created_at', 'desc')->paginate(10);
+        // Only paginate when filtering by a specific year
+        // When showing all years, return all projects without pagination
+        if ($request->year && $request->year !== 'all') {
+            $projects = $query->orderBy('created_at', 'desc')->paginate(10);
+        } else {
+            // Show all years without pagination
+            $allProjects = $query->orderBy('project_year', 'desc')->orderBy('created_at', 'desc')->get();
+            
+            // Create a simple paginator that shows all items on one page
+            $projects = new \Illuminate\Pagination\LengthAwarePaginator(
+                $allProjects,
+                $allProjects->count(),
+                $allProjects->count() > 0 ? $allProjects->count() : 1, // Show all on one page
+                1, // Current page is always 1
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+            
+            // Add custom property to indicate no pagination
+            $projects->isYearPagination = false;
+            $projects->noPagination = true;
+        }
         $categories = \App\Models\Category::orderBy('name')->get();
+        
+        // Get all available years for dropdown (independent of current filters)
+        $availableYears = \App\Models\Project::select('project_year')
+            ->whereNotNull('project_year')
+            ->where('project_year', '!=', 'Unknown Year')
+            ->distinct()
+            ->orderBy('project_year', 'desc')
+            ->pluck('project_year');
 
         // Ensure relationships are properly serialized for Inertia
         $projects->getCollection()->transform(function ($project) {
@@ -112,6 +142,8 @@ class ProjectController extends Controller
             'projects' => $projects,
             'categories' => $categories,
             'availableLetters' => $availableLetters,
+            'availableYears' => $availableYears,
+            'selectedYear' => $request->year ?? 'all',
             'filters' => $request->only(['search', 'status', 'month', 'year', 'letter'])
         ]);
     }
@@ -147,18 +179,6 @@ class ProjectController extends Controller
                 'required',
                 'string',
                 'max:255',
-                function ($attribute, $value, $fail) use ($request) {
-                    if ($value && $request->project_year) {
-                        $exists = Project::where('title', $value)
-                            ->where('project_year', $request->project_year)
-                            ->exists();
-                        
-                        if ($exists) {
-                            $fail("A project with the title '{$value}' already exists for the year {$request->project_year}.");
-                        }
-                    }
-                    return $value;
-                },
             ],
             'project_year' => 'required|integer|min:2020|max:2030',
             'date_started' => 'nullable|date',
@@ -175,7 +195,6 @@ class ProjectController extends Controller
                 'required',
                 'string',
                 'max:255',
-                'unique:projects,project_id',
             ],
             'contract_id' => [
                 'required',
@@ -405,8 +424,29 @@ class ProjectController extends Controller
             ->values()
             ->toArray();
         
-        $projects = $query->orderBy('created_at', 'desc')->paginate(10);
+        // ALWAYS show all years without pagination after saving a project
+        // Ignore any year filter from the request - we want to show all years
+        $allProjects = $query->orderBy('project_year', 'desc')->orderBy('created_at', 'desc')->get();
+        
+        $projects = new \Illuminate\Pagination\LengthAwarePaginator(
+            $allProjects,
+            $allProjects->count(),
+            $allProjects->count() > 0 ? $allProjects->count() : 1,
+            1,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+        
+        $projects->isYearPagination = false;
+        $projects->noPagination = true;
         $categories = \App\Models\Category::orderBy('name')->get();
+        
+        // Get all available years for dropdown (independent of current filters)
+        $availableYears = \App\Models\Project::select('project_year')
+            ->whereNotNull('project_year')
+            ->where('project_year', '!=', 'Unknown Year')
+            ->distinct()
+            ->orderBy('project_year', 'desc')
+            ->pluck('project_year');
         
         // Ensure relationships are properly serialized for Inertia
         $projects->getCollection()->transform(function ($project) {
@@ -414,11 +454,18 @@ class ProjectController extends Controller
             return $project;
         });
         
+        // Return Inertia response with updated projects list
+        // Always return 'all' for selectedYear to ensure all years are displayed
         return Inertia::render('ManageProject', [
             'projects' => $projects,
             'categories' => $categories,
             'availableLetters' => $availableLetters,
-            'filters' => $request->only(['search', 'status', 'year', 'letter'])
+            'availableYears' => $availableYears,
+            'selectedYear' => 'all',
+            'filters' => array_merge(
+                $request->only(['search', 'status', 'year', 'letter']), 
+                ['year' => 'all']
+            )
         ])->with('success', 'Project created successfully.');
     }
 
@@ -473,19 +520,6 @@ class ProjectController extends Controller
                 'nullable',
                 'string',
                 'max:255',
-                function ($attribute, $value, $fail) use ($request, $project) {
-                    if ($value && $request->project_year && $value !== $project->title) {
-                        $exists = Project::where('title', $value)
-                            ->where('project_year', $request->project_year)
-                            ->where('id', '!=', $project->id) // Exclude current project
-                            ->exists();
-                        
-                        if ($exists) {
-                            $fail("A project with the title '{$value}' already exists for the year {$request->project_year}.");
-                        }
-                    }
-                    return $value;
-                },
             ],
             'project_year' => 'nullable|integer|min:2020|max:2030',
             'date_started' => 'nullable|date',
@@ -789,8 +823,29 @@ class ProjectController extends Controller
             ->values()
             ->toArray();
         
-        $projects = $query->orderBy('created_at', 'desc')->paginate(10);
+        // ALWAYS show all years without pagination after saving a project
+        // Ignore any year filter from the request - we want to show all years
+        $allProjects = $query->orderBy('project_year', 'desc')->orderBy('created_at', 'desc')->get();
+        
+        $projects = new \Illuminate\Pagination\LengthAwarePaginator(
+            $allProjects,
+            $allProjects->count(),
+            $allProjects->count() > 0 ? $allProjects->count() : 1,
+            1,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+        
+        $projects->isYearPagination = false;
+        $projects->noPagination = true;
         $categories = \App\Models\Category::orderBy('name')->get();
+        
+        // Get all available years for dropdown (independent of current filters)
+        $availableYears = \App\Models\Project::select('project_year')
+            ->whereNotNull('project_year')
+            ->where('project_year', '!=', 'Unknown Year')
+            ->distinct()
+            ->orderBy('project_year', 'desc')
+            ->pluck('project_year');
         
         // Ensure relationships are properly serialized for Inertia
         $projects->getCollection()->transform(function ($project) {
@@ -799,11 +854,17 @@ class ProjectController extends Controller
         });
 
         // Return Inertia response with updated projects list
+        // Always return 'all' for selectedYear to ensure all years are displayed
         return Inertia::render('ManageProject', [
             'projects' => $projects,
             'categories' => $categories,
             'availableLetters' => $availableLetters,
-            'filters' => $request->only(['search', 'status', 'year', 'letter'])
+            'availableYears' => $availableYears,
+            'selectedYear' => 'all',
+            'filters' => array_merge(
+                $request->only(['search', 'status', 'year', 'letter']), 
+                ['year' => 'all']
+            )
         ])->with('success', 'Project updated successfully.');
     }
 
@@ -1037,12 +1098,29 @@ class ProjectController extends Controller
     /**
      * Archive a project.
      */
-    public function archiveProject(Project $project)
+    public function archiveProject($id)
     {
         try {
-            $project->update([
+            // Find the project manually
+            $project = \App\Models\Project::find($id);
+            
+            if (!$project) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Project not found'
+                ], 404);
+            }
+            
+            $updateResult = $project->update([
                 'is_archive' => true,
             ]);
+            
+            if (!$updateResult) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to update project'
+                ], 500);
+            }
             
             return response()->json([
                 'success' => true,
@@ -1060,9 +1138,19 @@ class ProjectController extends Controller
     /**
      * Unarchive a project.
      */
-    public function unarchiveProject(Project $project)
+    public function unarchiveProject($id)
     {
         try {
+            // Find the project manually
+            $project = \App\Models\Project::find($id);
+            
+            if (!$project) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Project not found'
+                ], 404);
+            }
+            
             $project->update([
                 'is_archive' => false,
             ]);

@@ -2,31 +2,49 @@ import PageLayout from '@/Layouts/PageLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import { showArchiveConfirmation, showSuccessToast, showErrorToast } from '@/Utils/alerts';
+import { showSuccessToast, showErrorToast } from '@/Utils/alerts';
+import EditCategoryModal from '@/Components/EditCategoryModal';
+import FeedbackAlert from '@/Components/FeedbackAlert';
 
 export default function Categories() {
     const { categories, totalProjects, selectedYear: initialYear } = usePage().props;
     const urlParams = new URLSearchParams(window.location.search);
     const [searchTerm, setSearchTerm] = useState(urlParams.get('search') || '');
     const [selectedYear, setSelectedYear] = useState(initialYear || 'all');
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingCategory, setEditingCategory] = useState(null);
+    const [archiveAlert, setArchiveAlert] = useState({
+        show: false,
+        category: null,
+        hasProjects: false,
+        projectCount: 0
+    });
 
-    const handleArchive = async (category) => {
-        try {
-            const result = await showArchiveConfirmation(category.name, category.projects_count);
-            
-            if (result.isConfirmed) {
-                router.post(route('categories.archive', category.id), {}, {
-                    onSuccess: () => {
-                        showSuccessToast(`Category "${category.name}" archived successfully!`);
-                    },
-                    onError: (errors) => {
-                        showErrorToast('Failed to archive category. Please try again.');
-                    }
-                });
+    const handleArchive = (category) => {
+        const hasProjects = category.projects_count > 0;
+        setArchiveAlert({
+            show: true,
+            category: category,
+            hasProjects: hasProjects,
+            projectCount: category.projects_count
+        });
+    };
+
+    const proceedWithArchive = () => {
+        if (!archiveAlert.category) return;
+        
+        const category = archiveAlert.category;
+        
+        router.post(route('categories.archive', category.id), {}, {
+            onSuccess: () => {
+                showSuccessToast(`Category "${category.name}" archived successfully!`);
+                setArchiveAlert({ show: false, category: null, hasProjects: false, projectCount: 0 });
+            },
+            onError: () => {
+                showErrorToast('Failed to archive category. Please try again.');
+                setArchiveAlert({ show: false, category: null, hasProjects: false, projectCount: 0 });
             }
-        } catch (error) {
-            showErrorToast('An unexpected error occurred. Please try again.');
-        }
+        });
     };
 
     const handleSearch = (term) => {
@@ -180,8 +198,8 @@ export default function Categories() {
                                             className="hover:bg-slate-50 transition-colors cursor-pointer border-b border-slate-100"
                                         >
                                             {/* Category Name */}
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="font-semibold text-slate-900">{category.name}</div>
+                                            <td className="px-6 py-4 max-w-xs">
+                                                <div className="font-semibold text-slate-900 break-words">{category.name}</div>
                                             </td>
 
                                             {/* Project Count */}
@@ -192,16 +210,6 @@ export default function Categories() {
                                             {/* Actions */}
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 <div className="flex items-center justify-center gap-3">
-
-                                                    <Link
-                                                        href={route('categories.edit', category.id)}
-                                                        className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium shadow-sm"
-                                                    >
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                        </svg>
-                                                        Edit
-                                                    </Link>
 
                                                     <form
                                                         onSubmit={(e) => {
@@ -313,6 +321,64 @@ export default function Categories() {
                             </span>
                    </div>
                 )}
+
+                {/* Feedback Alert for Archive Confirmation */}
+                <FeedbackAlert
+                    show={archiveAlert.show}
+                    type={archiveAlert.hasProjects ? 'warning' : 'info'}
+                    title="Archive Category?"
+                    isModal={true}
+                    html={
+                        archiveAlert.hasProjects
+                            ? `<div class="space-y-4 text-left">
+                                <p class="text-slate-700">
+                                    Archive <span class="font-semibold text-slate-900">"${archiveAlert.category?.name}"</span>?
+                                </p>
+                                <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                                    <div class="flex items-start gap-3">
+                                        <div class="flex-shrink-0">
+                                            <svg class="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                        <div class="flex-1">
+                                            <h4 class="text-amber-900 font-semibold text-sm">Proceed with caution</h4>
+                                            <p class="text-amber-800 text-sm mt-1">
+                                                Category has currently <span class="font-bold">${archiveAlert.projectCount}</span> active/recorded project${archiveAlert.projectCount > 1 ? 's' : ''}.
+                                            </p>
+                                            <p class="text-amber-700 text-xs mt-2">
+                                                Projects won't be deleted, but they'll become uncategorized.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>`
+                            : `<p class="text-slate-700">Are you sure you want to archive <span class="font-semibold text-slate-900">"${archiveAlert.category?.name}"</span>?</p>`
+                    }
+                    confirmButtonText="Archive"
+                    cancelButtonText="Cancel"
+                    onConfirm={proceedWithArchive}
+                    onCancel={() => setArchiveAlert({ show: false, category: null, hasProjects: false, projectCount: 0 })}
+                    onClose={() => setArchiveAlert({ show: false, category: null, hasProjects: false, projectCount: 0 })}
+                    customClass={{
+                        confirmButton: 'bg-orange-500 text-white hover:bg-orange-600 shadow-md',
+                        cancelButton: 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+                    }}
+                />
+
+                {/* Edit Category Modal */}
+                <EditCategoryModal
+                    show={showEditModal}
+                    category={editingCategory}
+                    onClose={() => {
+                        setShowEditModal(false);
+                        setEditingCategory(null);
+                    }}
+                    onUpdate={() => {
+                        // Refresh the categories list
+                        router.reload({ only: ['categories'] });
+                    }}
+                />
             </div>
         </PageLayout>
     );

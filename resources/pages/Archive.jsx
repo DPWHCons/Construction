@@ -7,8 +7,8 @@ import { showRestoreConfirmation, showDeleteConfirmation, showSuccessToast, show
 
 export default function Archive({ archivedImages }) {
     const { archivedProjects, archivedCategories, archivedContractors } = usePage().props;
-    const page = usePage(); // Get page props at component level
-    const [activeTab, setActiveTab] = useState('images'); // images, categories, contractors, projects
+    const page = usePage();
+    const [activeTab, setActiveTab] = useState('images');
     const [selectedImage, setSelectedImage] = useState(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [expandedProjects, setExpandedProjects] = useState(new Set());
@@ -50,22 +50,18 @@ export default function Archive({ archivedImages }) {
         setSelectedImages(newSelected);
     };
 
-    // Helper function to get unique image identifier
     const getImageKey = (image, groupKey, imageIndex) => {
         return `${groupKey}-${image.id}`;
     };
 
-    // Get all archived images as flat array for selection operations
     const getAllArchivedImages = () => {
         return Object.values(filteredGroups).flatMap(group => group.images);
     };
 
-    // Get total count of archived images
     const getTotalArchivedImagesCount = () => {
         return getAllArchivedImages().length;
     };
 
-    // Check if all images are selected
     const areAllImagesSelected = () => {
         const allImages = getAllArchivedImages();
         if (allImages.length === 0) return false;

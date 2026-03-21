@@ -3,14 +3,15 @@ export default function ThreeColumnField({
     fields = [],
     data,
     setData,
-    errors
+    errors,
+    actionButton = null
 }) {
     return (
         <div>
             <label className="block text-xs font-medium text-slate-700 font-montserrat mb-2">
                 {label}
             </label>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+            <div className={`grid gap-2 ${actionButton ? 'grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_auto]' : 'grid-cols-1 lg:grid-cols-3'}`}>
                 {fields.map((field, index) => (
                     <div key={index}>
                         <label className="block text-xs text-slate-500 font-montserrat mb-1">
@@ -56,6 +57,17 @@ export default function ThreeColumnField({
                         )}
                     </div>
                 ))}
+                {actionButton && (
+                    <div className="flex items-end">
+                        <button
+                            type="button"
+                            onClick={actionButton.onClick}
+                            className="px-2 py-3 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors text-xs max-w-[120px]"
+                        >
+                            {actionButton.label}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

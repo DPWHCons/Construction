@@ -2,6 +2,28 @@ import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import SessionTimeoutWarning from '../Components/SessionTimeoutWarning';
 import { Toaster } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const pageVariants = {
+    initial: {
+        opacity: 0,
+        x: -20,
+    },
+    in: {
+        opacity: 1,
+        x: 0,
+    },
+    out: {
+        opacity: 0,
+        x: 20,
+    },
+};
+
+const pageTransition = {
+    type: 'tween',
+    ease: 'easeInOut',
+    duration: 0.3,
+};
 
 export default function PageLayout({ header, children }) {
     const user = usePage().props.auth.user;
@@ -22,14 +44,6 @@ export default function PageLayout({ header, children }) {
     
     const [expandedMenus, setExpandedMenus] = useState({});
     const [showUserMenu, setShowUserMenu] = useState(false);
-    const [showPasswordModal, setShowPasswordModal] = useState(false);
-    const [passwordData, setPasswordData] = useState({
-        current_password: '',
-        password: '',
-        password_confirmation: ''
-    });
-    const [passwordErrors, setPasswordErrors] = useState({});
-    const [processing, setProcessing] = useState(false);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
@@ -179,19 +193,7 @@ export default function PageLayout({ header, children }) {
 
                     {/* Sidebar Footer */}
                     <div className="px-3 pb-4 mt-auto">
-                        {/* Change Password Button */}
-                        <button
-                            onClick={() => setShowPasswordModal(true)}
-                            className={`w-full group flex items-center ${sidebarOpen ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden text-gray-600 hover:bg-[#Eb3505] hover:text-white hover:shadow-md hover:transform hover:scale-105 mb-4`}
-                        >
-                            <div className="absolute inset-0 bg-[#Eb3505] rounded-xl blur-sm opacity-0 group-hover:opacity-15 transition-opacity duration-300"></div>
-                            <svg className={`relative w-4 h-4 ${sidebarOpen ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                            </svg>
-                            {sidebarOpen && (
-                                <span className="relative font-medium flex-1 text-left">Change Password</span>
-                            )}
-                        </button>
+                        {/* Space for future footer items */}
                     </div>
                     
                     {/* Absolute Bottom Logout */}
@@ -223,102 +225,24 @@ export default function PageLayout({ header, children }) {
                         </div>
                     )}
                     <div className="p-6">
-                        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-                            {children}
+                        <div className="px-6 lg:px-8">
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={url}
+                                    initial="initial"
+                                    animate="in"
+                                    exit="out"
+                                    variants={pageVariants}
+                                    transition={pageTransition}
+                                    style={{ width: '100%' }}
+                                >
+                                    {children}
+                                </motion.div>
+                            </AnimatePresence>
                         </div>
                     </div>
                 </main>
             </div>
-            
-            {/* Password Change Modal */}
-            {showPasswordModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100 border border-white/20">
-                        {/* Modal Header */}
-                        <div className="bg-[#010066] p-6 rounded-t-2xl">
-                            <h3 className="text-xl font-bold text-white">Change Password</h3>
-                            <p className="text-white/80 text-sm mt-1">Update your account password</p>
-                        </div>
-                        
-                        {/* Modal Body */}
-                        <div className="p-6">
-                            <div className="space-y-4">
-                                {/* Current Password */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Current Password
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={passwordData.current_password}
-                                        onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#010066] focus:ring-[#010066] transition-colors duration-200"
-                                        placeholder="Enter current password"
-                                    />
-                                    {passwordErrors.current_password && (
-                                        <p className="text-red-500 text-sm mt-1">{passwordErrors.current_password}</p>
-                                    )}
-                                </div>
-                                
-                                {/* New Password */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        New Password
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={passwordData.password}
-                                        onChange={(e) => setPasswordData({...passwordData, password: e.target.value})}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#010066] focus:ring-[#010066] transition-colors duration-200"
-                                        placeholder="Enter new password"
-                                    />
-                                    {passwordErrors.password && (
-                                        <p className="text-red-500 text-sm mt-1">{passwordErrors.password}</p>
-                                    )}
-                                </div>
-                                
-                                {/* Confirm Password */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Confirm New Password
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={passwordData.password_confirmation}
-                                        onChange={(e) => setPasswordData({...passwordData, password_confirmation: e.target.value})}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#010066] focus:ring-[#010066] transition-colors duration-200"
-                                        placeholder="Confirm new password"
-                                    />
-                                    {passwordErrors.password_confirmation && (
-                                        <p className="text-red-500 text-sm mt-1">{passwordErrors.password_confirmation}</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {/* Modal Footer */}
-                        <div className="bg-gray-50 px-6 py-4 rounded-b-2xl flex justify-end space-x-3">
-                            <button
-                                onClick={() => {
-                                    setShowPasswordModal(false);
-                                    setPasswordData({current_password: '', password: '', password_confirmation: ''});
-                                    setPasswordErrors({});
-                                }}
-                                className="px-4 py-2 text-gray-600 bg-gray-200 hover:bg-gray-300 rounded-xl transition-colors duration-200"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handlePasswordChange}
-                                disabled={processing}
-                                className="px-4 py-2 bg-[#010066] text-white rounded-xl hover:bg-[#Eb3505] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {processing ? 'Updating...' : 'Update Password'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
             
             {/* Session Timeout Warning */}
             <SessionTimeoutWarning />
@@ -350,40 +274,4 @@ export default function PageLayout({ header, children }) {
             />
         </div>
     );
-    
-    function handlePasswordChange() {
-        setProcessing(true);
-        setPasswordErrors({});
-        
-        // This would typically make an API call to change password
-        // For now, we'll simulate the process
-        setTimeout(() => {
-            // Basic validation
-            const errors = {};
-            if (!passwordData.current_password) {
-                errors.current_password = 'Current password is required';
-            }
-            if (!passwordData.password) {
-                errors.password = 'New password is required';
-            } else if (passwordData.password.length < 8) {
-                errors.password = 'Password must be at least 8 characters';
-            }
-            if (!passwordData.password_confirmation) {
-                errors.password_confirmation = 'Please confirm your password';
-            } else if (passwordData.password !== passwordData.password_confirmation) {
-                errors.password_confirmation = 'Passwords do not match';
-            }
-            
-            if (Object.keys(errors).length > 0) {
-                setPasswordErrors(errors);
-                setProcessing(false);
-            } else {
-                // Success - close modal and reset
-                setShowPasswordModal(false);
-                setPasswordData({current_password: '', password: '', password_confirmation: ''});
-                setProcessing(false);
-                // You could add a success toast here
-            }
-        }, 1000);
-    }
 }

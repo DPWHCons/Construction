@@ -33,6 +33,10 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
+    // Direct password reset route
+    Route::put('reset-password-direct', [NewPasswordController::class, 'directReset'])
+        ->name('password.reset.direct');
 });
 
 Route::middleware(['auth', 'session.activity'])->group(function () {

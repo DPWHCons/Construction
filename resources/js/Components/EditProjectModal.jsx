@@ -1,7 +1,8 @@
 import { useForm, usePage, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import DPWHLoading from '@/Components/DPWHLoading';
-import { showSuccessToast, showErrorToast } from '../Utils/alerts';
+import NumberField from '@/Components/forms/NumberField';
+import FeedbackAlert from '@/Components/FeedbackAlert';
 
 export default function EditProjectModal({ show, onClose, project, categories = [], updateProjectData }) {
     // Image state
@@ -11,6 +12,12 @@ export default function EditProjectModal({ show, onClose, project, categories = 
     
     // Loading state
     const [isLoading, setIsLoading] = useState(false);
+    
+    // Feedback alert states
+    const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+    const [showErrorAlert, setShowErrorAlert] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
+    const [alertTitle, setAlertTitle] = useState('');
     
     // Dynamic engineers state
     const [engineers, setEngineers] = useState([
@@ -388,8 +395,16 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                 },
                 onSuccess: (page) => {
                     setIsLoading(false);
-                    showSuccessToast(`Project "${data.title || project.title || 'Untitled'}" updated successfully!`);
-                    onClose();
+                    setAlertTitle('Success');
+                    setAlertMessage(`Successfully Updated "${data.contract_id || project.contract_id || 'Untitled'}"`);
+                    setShowSuccessAlert(true);
+                    
+                    // Auto-close modal after showing success feedback
+                    setTimeout(() => {
+                        setShowSuccessAlert(false);
+                        onClose();
+                    }, 500); // Give alert time to show before closing
+                    
                     // Update parent component data with complete server response
                     if (updateProjectData && page.props.projects?.data) {
                         // Replace entire project data with server response to maintain pagination
@@ -398,11 +413,20 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                 },
                 onError: (errors) => {
                     setIsLoading(false);
-                    showErrorToast('Failed to update project. Please check the form for errors.');
+                    setAlertTitle('Error');
+                    setAlertMessage('Failed to update project. Please check the form for errors.');
+                    setShowErrorAlert(true);
+                    setTimeout(() => {
+                        setShowErrorAlert(false);
+                    }, 5000);
                     // Show specific errors to user
                     const errorMessages = Object.values(errors).flat();
                     if (errorMessages.length > 0) {
-                        showErrorToast(errorMessages[0]);
+                        setAlertMessage(errorMessages[0]);
+                        setShowErrorAlert(true);
+                        setTimeout(() => {
+                            setShowErrorAlert(false);
+                        }, 5000);
                     }
                 },
                 onFinish: () => {
@@ -425,6 +449,28 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                 />
             )}
             
+            {/* Success Feedback Alert */}
+            <FeedbackAlert
+                show={showSuccessAlert}
+                onClose={() => setShowSuccessAlert(false)}
+                type="success"
+                title={alertTitle}
+                message={alertMessage}
+                duration={3000}
+                showProgress={true}
+            />
+            
+            {/* Error Feedback Alert */}
+            <FeedbackAlert
+                show={showErrorAlert}
+                onClose={() => setShowErrorAlert(false)}
+                type="error"
+                title={alertTitle}
+                message={alertMessage}
+                duration={5000}
+                showProgress={true}
+            />
+            
             <div 
             className="fixed top-0 left-0 right-0 bottom-0 bg-black/60 flex items-center justify-center z-[9999] p-4"
             style={{
@@ -444,14 +490,14 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                     <div className="flex items-center justify-between">
                         <h3 className="text-xl font-bold text-slate-800 font-montserrat">Edit Project</h3>
                         <div className="flex items-center space-x-3">
-                            <div className="relative bg-slate-200 rounded-full p-1 w-64 h-10">
+                            <div className="relative bg-slate-200 rounded-full p-1 w-72 h-10">
                                 <div 
-                                    className={`absolute top-1 h-8 w-20 rounded-full shadow-md transition-all duration-300 ease-in-out ${
+                                    className={`absolute top-1 h-8 w-24 rounded-full shadow-md transition-all duration-300 ease-in-out ${
                                         data.status === 'ongoing' 
                                             ? 'left-1 bg-orange-500' 
                                             : data.status === 'completed'
-                                            ? 'left-[84px] bg-blue-500'
-                                            : 'left-[167px] bg-red-500'
+                                            ? 'left-[100px] bg-blue-500'
+                                            : 'left-[196px] bg-red-500'
                                     }`}
                                 />
                                 <div className="relative z-10 flex h-8">
@@ -598,42 +644,27 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                                 <h4 className="text-base font-semibold text-slate-800 font-montserrat mb-3">Financial Information</h4>
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700 font-montserrat mb-1">Program Amount</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            value={data.program_amount}
-                                            onChange={(e) => setData('program_amount', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                            placeholder="Enter program amount"
-                                        />
-                                        {errors.program_amount && <p className="text-red-500 text-xs mt-1">{errors.program_amount}</p>}
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700 font-montserrat mb-1">Project Cost</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            value={data.project_cost}
-                                            onChange={(e) => setData('project_cost', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                            placeholder="Enter project cost"
-                                        />
-                                        {errors.project_cost && <p className="text-red-500 text-xs mt-1">{errors.project_cost}</p>}
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700 font-montserrat mb-1">Revised Project Cost</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            value={data.revised_project_cost}
-                                            onChange={(e) => setData('revised_project_cost', e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                            placeholder="Enter revised project cost"
-                                        />
-                                        {errors.revised_project_cost && <p className="text-red-500 text-xs mt-1">{errors.revised_project_cost}</p>}
-                                    </div>
+                                    <NumberField
+                                        label="Program Amount ('000)"
+                                        name="program_amount"
+                                        data={data}
+                                        setData={setData}
+                                        errors={errors}
+                                    />
+                                    <NumberField
+                                        label="Project Cost ('000)"
+                                        name="project_cost"
+                                        data={data}
+                                        setData={setData}
+                                        errors={errors}
+                                    />
+                                    <NumberField
+                                        label="Revised Project Cost ('000)"
+                                        name="revised_project_cost"
+                                        data={data}
+                                        setData={setData}
+                                        errors={errors}
+                                    />
                                 </div>
                             </div>
 
@@ -877,76 +908,80 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                                 <h4 className="text-base font-semibold text-slate-800 font-montserrat mb-3">Assigned Engineers</h4>
                                 <div className="space-y-3">
                                     {engineers.map((engineer, index) => (
-                                        <div key={index} className="flex gap-3 items-start">
-                                            <div className="flex-1">
-                                                <label className="block text-xs font-medium text-slate-700 font-montserrat mb-1">Engineer Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={engineer.name}
-                                                    onChange={(e) => updateEngineer(index, 'name', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                    placeholder="Enter engineer name"
-                                                />
-                                                {errors[`assigned_engineer_${index + 1}`] && <p className="text-red-500 text-xs mt-1">{errors[`assigned_engineer_${index + 1}`]}</p>}
-                                            </div>
-                                            <div className="flex-1">
-                                                <label className="block text-xs font-medium text-slate-700 font-montserrat mb-1">Title</label>
-                                                {engineer.titles.map((title, titleIndex) => (
-                                                    <div key={titleIndex} className="flex gap-2 mb-2">
+                                        <div key={index} className="border border-slate-200 rounded-lg p-3 bg-white">
+                                            <div className="flex gap-3 items-start">
+                                                <div className="flex-1">
+                                                    <label className="block text-xs font-medium text-slate-700 font-montserrat mb-1">Engineer Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={engineer.name}
+                                                        onChange={(e) => updateEngineer(index, 'name', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
+                                                        placeholder="Enter engineer name"
+                                                    />
+                                                    {errors[`assigned_engineer_${index + 1}`] && <p className="text-red-500 text-xs mt-1">{errors[`assigned_engineer_${index + 1}`]}</p>}
+                                                </div>
+                                                
+                                                <div className="flex-1">
+                                                    <label className="block text-xs font-medium text-slate-700 font-montserrat mb-1">Engineer Title</label>
+                                                    <div className="flex gap-2">
                                                         <div className="flex-1">
-                                                            <select
-                                                                value={title}
-                                                                onChange={(e) => updateEngineerTitle(index, titleIndex, e.target.value)}
-                                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                            >
-                                                                <option value="">Select Title</option>
-                                                                <option value="RE">Resident Engineer</option>
-                                                                <option value="QE">Quality Engineer</option>
-                                                                <option value="PI">Project Inspector</option>
-                                                                <option value="ME">Materials Engineer</option>
-                                                                <option value="Lab Tech/Lab Aide">Lab Tech/Lab Aide</option>
-                                                            </select>
+                                                            {engineer.titles.map((title, titleIndex) => (
+                                                                <div key={titleIndex} className="flex gap-2 mb-2">
+                                                                    <div className="flex-1">
+                                                                        <select
+                                                                            value={title}
+                                                                            onChange={(e) => updateEngineerTitle(index, titleIndex, e.target.value)}
+                                                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
+                                                                        >
+                                                                            <option value="">Select Title</option>
+                                                                            <option value="RE">Resident Engineer</option>
+                                                                            <option value="QE">Quality Engineer</option>
+                                                                            <option value="PI">Project Inspector</option>
+                                                                            <option value="ME">Materials Engineer</option>
+                                                                            <option value="Lab Tech/Lab Aide">Lab Tech/Lab Aide</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    {engineer.titles.length > 1 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => removeTitleFromEngineer(index, titleIndex)}
+                                                                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors mt-0.5"
+                                                                            title="Remove title"
+                                                                        >
+                                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                        {engineer.titles.length > 1 && (
+                                                        <div className="flex flex-col justify-start">
                                                             <button
                                                                 type="button"
-                                                                onClick={() => removeTitleFromEngineer(index, titleIndex)}
-                                                                className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors mt-0.5"
-                                                                title="Remove title"
+                                                                onClick={() => addTitleToEngineer(index)}
+                                                                className="px-2 py-2 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors whitespace-nowrap h-[38px]"
                                                             >
-                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                                                </svg>
+                                                                Add Engr. title
                                                             </button>
-                                                        )}
+                                                            {engineers.length > 1 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeEngineer(index)}
+                                                                    className="p-2 text-white hover:text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors mt-2 flex items-center gap-1"
+                                                                    title="Remove engineer"
+                                                                >
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                    <span className="text-xs">Remove Engr.</span>
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                ))}
-                                                {errors[`engineer_title_${index + 1}`] && <p className="text-red-500 text-xs mt-1">{errors[`engineer_title_${index + 1}`]}</p>}
-                                            </div>
-                                            
-                                            <div className="flex flex-col justify-start mt-6">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => addTitleToEngineer(index)}
-                                                    className="inline-flex items-center px-3 py-2 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors whitespace-nowrap"
-                                                >
-                                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                                    </svg>
-                                                    Add Engr. title
-                                                </button>
-                                                {engineers.length > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeEngineer(index)}
-                                                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors mt-2"
-                                                        title="Remove engineer"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </button>
-                                                )}
+                                                    {errors[`engineer_title_${index + 1}`] && <p className="text-red-500 text-xs mt-1">{errors[`engineer_title_${index + 1}`]}</p>}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -1000,7 +1035,7 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                                 )}
                                 
                                 {/* Image Upload Button */}
-                                <div className="mb-4">
+                                <div className="mb-4 flex justify-center">
                                     <label className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -1014,8 +1049,8 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                                             className="hidden"
                                         />
                                     </label>
-                                    <p className="text-xs text-slate-500 mt-2">You can select multiple images at once</p>
                                 </div>
+                                <p className="text-xs text-slate-500 mt-2">You can select multiple images at once</p>
 
                                 {/* New Image Previews */}
                                 {imagePreviews.length > 0 && (

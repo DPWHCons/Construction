@@ -24,6 +24,8 @@ class ProjectImage extends Model
         'archived_at' => 'datetime',
     ];
 
+    protected $appends = ['url'];
+
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);

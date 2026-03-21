@@ -79,9 +79,9 @@ export default function ProjectDetailsModal({ show, project, onClose, onShowImag
                         <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200">
                             <h5 className="text-lg font-semibold mb-2">Financial Information</h5>
                             <div className="flex flex-col gap-2 text-sm text-gray-700">
-                                <p><span className="font-semibold">Program Amount ('000):</span> {formatPeso(project.program_amount || 0)}</p>
-                                <p><span className="font-semibold">Project Cost ('000):</span> {formatPeso(project.project_cost || 0)}</p>
-                                <p><span className="font-semibold">Revised Project Cost ('000):</span> {formatPeso(project.revised_project_cost || 0)}</p>
+                                <p><span className="font-semibold">Program Amount ('000):</span> {project.formatted_program_amount || formatPeso(project.program_amount || 0)}</p>
+                                <p><span className="font-semibold">Project Cost ('000):</span> {project.formatted_project_cost || formatPeso(project.project_cost || 0)}</p>
+                                <p><span className="font-semibold">Revised Project Cost ('000):</span> {project.formatted_revised_project_cost || formatPeso(project.revised_project_cost || 0)}</p>
                             </div>
                         </div>
 

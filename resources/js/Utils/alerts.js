@@ -1,6 +1,41 @@
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 
+// Add CSS animations for modern toast
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slide-in-right {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slide-out-right {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    .animate-slide-in-right {
+        animation: slide-in-right 0.3s ease-out;
+    }
+    
+    .animate-slide-out-right {
+        animation: slide-out-right 0.3s ease-in;
+    }
+`;
+document.head.appendChild(style);
+
 // SweetAlert2: modern, minimal, "Apple-like" defaults
 const appleSwal = Swal.mixin({
     buttonsStyling: false,
@@ -163,12 +198,12 @@ export const showArchiveConfirmation = (itemName, projectCount = 0) => {
                                 </svg>
                             </div>
                             <div class="flex-1">
-                                <h4 class="text-amber-900 font-semibold">Heads up</h4>
+                                <h4 class="text-amber-900 font-semibold">Proceed with caution</h4>
                                 <p class="text-amber-800 text-sm mt-1">
-                                    This category contains <span class="font-bold">${projectCount}</span> project${projectCount > 1 ? 's' : ''}.
+                                    Category has currently <span class="font-bold">${projectCount}</span> active/recorded project${projectCount > 1 ? 's' : ''}.
                                 </p>
                                 <p class="text-amber-700 text-xs mt-2">
-                                    Projects won’t be deleted, but they’ll become uncategorized.
+                                    Projects won't be deleted, but they'll become uncategorized.
                                 </p>
                             </div>
                         </div>
@@ -254,6 +289,61 @@ export const showEditConfirmation = (itemName, itemType = 'item') => {
             confirmButton:
                 'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors',
         },
+    });
+};
+
+// Modern, compact import confirmation
+export const showImportConfirmation = (imported, failed = 0) => {
+    const isSuccess = failed === 0;
+    
+    return Swal.fire({
+        toast: true,
+        position: 'top-end',
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        showCancelButton: false,
+        showClass: {
+            popup: 'animate-slide-in-right',
+        },
+        hideClass: {
+            popup: 'animate-slide-out-right',
+        },
+        customClass: {
+            popup: 'rounded-xl shadow-lg border-0 bg-white/95 backdrop-blur-sm p-4 min-w-[280px]',
+            title: `text-base font-semibold ${isSuccess ? 'text-emerald-700' : 'text-red-700'}`,
+            htmlContainer: `text-sm ${isSuccess ? 'text-slate-700' : 'text-slate-700'}`,
+            actions: 'mt-3',
+        },
+        html: `
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0">
+                    ${isSuccess ? 
+                        `<div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>` :
+                        `<div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>`
+                    }
+                </div>
+                <div class="flex-1">
+                    <div class="font-semibold text-slate-900">
+                        ${isSuccess ? 'Import Successful' : 'Import Failed'}
+                    </div>
+                    <div class="text-sm ${isSuccess ? 'text-emerald-600' : 'text-slate-600'}">
+                        ${isSuccess ? 
+                            `Successfully imported ${imported} project${imported !== 1 ? 's' : ''}` :
+                            `${failed} project${failed !== 1 ? 's' : ''} failed to import`
+                        }
+                    </div>
+                </div>
+            </div>
+        `,
     });
 };
 

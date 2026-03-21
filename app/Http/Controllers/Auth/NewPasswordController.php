@@ -66,4 +66,29 @@ class NewPasswordController extends Controller
             'email' => [trans($status)],
         ]);
     }
+
+    /**
+     * Handle direct password reset without authentication.
+     */
+    public function directReset(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'password' => ['required', 'confirmed', 'min:6'],
+        ]);
+
+        // For demo purposes, we'll update the first user's password
+        // In production, you might want to identify the user differently
+        $user = \App\Models\User::first();
+        
+        if ($user) {
+            $user->forceFill([
+                'password' => Hash::make($request->password),
+                'remember_token' => Str::random(60),
+            ])->save();
+
+            event(new PasswordReset($user));
+        }
+
+        return redirect()->route('login')->with('status', 'Password has been reset successfully.');
+    }
 }

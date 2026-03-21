@@ -42,6 +42,14 @@ export default function ProgressScopeSection({ data, setData, errors }) {
         }
     ];
 
+    const handleApplyToAll = () => {
+        const firstStartDate = data['target_start_planned'] || '';
+        if (firstStartDate) {
+            setData('target_start_revised', firstStartDate);
+            setData('target_start_actual', firstStartDate);
+        }
+    };
+
     return (
         <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
             <h4 className="text-base font-semibold text-slate-800 font-montserrat mb-3">Progress & Scope</h4>
@@ -60,6 +68,10 @@ export default function ProgressScopeSection({ data, setData, errors }) {
                     data={data}
                     setData={setData}
                     errors={errors}
+                    actionButton={{
+                        label: "Apply to All",
+                        onClick: handleApplyToAll
+                    }}
                 />
 
                 <ThreeColumnField

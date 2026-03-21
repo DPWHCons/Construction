@@ -47,12 +47,7 @@ class DashboardController extends Controller
             return Project::with(['scope', 'progress', 'remarks'])
                 ->orderBy('date_started', 'desc')
                 ->take(5)
-                ->get()
-                ->map(function($project) {
-                    // Set contract_id to null since contracts table was removed
-                    $project->contract_id = null;
-                    return $project;
-                });
+                ->get();
         });
         
         // Monthly project counts with caching (10 minutes for monthly data)

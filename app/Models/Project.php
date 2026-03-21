@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Helpers\CurrencyHelper;
 
 class Project extends Model
 {
@@ -77,4 +78,27 @@ class Project extends Model
     {
         return $this->hasMany(ProjectRemark::class);
     }
+
+    // Accessors for formatted currency values
+    public function getFormattedProjectCostAttribute()
+    {
+        return CurrencyHelper::formatPeso($this->project_cost);
+    }
+
+    public function getFormattedRevisedProjectCostAttribute()
+    {
+        return CurrencyHelper::formatPeso($this->revised_project_cost);
+    }
+
+    public function getFormattedProgramAmountAttribute()
+    {
+        return CurrencyHelper::formatPeso($this->program_amount);
+    }
+
+    // Make formatted attributes visible in JSON/Array serialization
+    protected $appends = [
+        'formatted_project_cost',
+        'formatted_revised_project_cost',
+        'formatted_program_amount'
+    ];
 }

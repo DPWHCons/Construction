@@ -238,22 +238,7 @@ class CategoryController extends Controller
      */
     private function clearCategoryCaches()
     {
-        // Clear all category caches
-        $cacheKeys = Cache::getRedis()->keys('categories_*');
-        foreach ($cacheKeys as $key) {
-            Cache::forget($key);
-        }
-        
-        // Clear total projects caches
-        $totalProjectsKeys = Cache::getRedis()->keys('total_projects_*');
-        foreach ($totalProjectsKeys as $key) {
-            Cache::forget($key);
-        }
-        
-        // Clear dashboard caches since they include category data
-        $dashboardKeys = Cache::getRedis()->keys('dashboard_*');
-        foreach ($dashboardKeys as $key) {
-            Cache::forget($key);
-        }
+        // Clear all caches by flushing (simpler and driver-agnostic)
+        Cache::flush();
     }
 }

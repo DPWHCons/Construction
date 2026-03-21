@@ -2,7 +2,7 @@ import PageLayout from '@/Layouts/PageLayout';
 import { Head, router } from '@inertiajs/react';
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { showErrorMessage, showSuccessMessage, showProjectArchiveConfirmation } from '@/Utils/alerts';
+import { showErrorMessage, showSuccessMessage, showProjectArchiveConfirmation, showImportConfirmation } from '@/Utils/alerts';
 import CreateProjectModal from '@/Components/CreateProjectModal';
 import EditProjectModal from '@/Components/EditProjectModal';
 import ProjectDetailsModal from '@/Components/ProjectDetailsModal';
@@ -11,11 +11,11 @@ import ImportModal from '@/Components/ImportModal';
 import DPWHLoading from '@/Components/DPWHLoading';
 import useAutoRefresh from '@/Hooks/useAutoRefresh';
 
-export default function ManageProject({ projects, categories, availableLetters }) {
+export default function ManageProject({ projects, categories, availableLetters, availableYears = [], selectedYear: initialYear = 'all' }) {
     const urlParams = new URLSearchParams(window.location.search);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
-    const [selectedYear, setSelectedYear] = useState('all');
+    const [selectedYear, setSelectedYear] = useState(initialYear);
     const [yearRangeStart, setYearRangeStart] = useState(new Date().getFullYear() - 2);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -23,16 +23,18 @@ export default function ManageProject({ projects, categories, availableLetters }
     const [selectedProject, setSelectedProject] = useState(null);
     const [showImages, setShowImages] = useState(false);
     const [openCategories, setOpenCategories] = useState({});
-    const [selectedLetter, setSelectedLetter] = useState(urlParams.get('letter') || 'All');
+    const [categoryHeights, setCategoryHeights] = useState({});
+    const [animatingCategories, setAnimatingCategories] = useState(new Set());
+    const [expandedYears, setExpandedYears] = useState(new Set()); // Track which years are expanded
+    const [yearHeights, setYearHeights] = useState({});
+    const [animatingYears, setAnimatingYears] = useState(new Set());
     const [loading, setLoading] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [showDPWHLoading, setShowDPWHLoading] = useState(false);
 
-    // Local project data for instant UI updates
     const [projectData, setProjectData] = useState(projects?.data || []);
 
-    // Auto-refresh data every 30 seconds
-    const { refresh } = useAutoRefresh(30000, {
+    const { refresh } = useAutoRefresh(1000, {
         preserveScroll: true,
         preserveState: true,
     });
@@ -53,9 +55,19 @@ export default function ManageProject({ projects, categories, availableLetters }
         }
     }, [projects]);
 
+    // Sync selectedYear with backend props
+    useEffect(() => {
+        setSelectedYear(initialYear || 'all');
+    }, [initialYear]);
+
     // Group projects by year and category for transparency
     const groupedProjects = useMemo(() => {
-        return projectData.reduce((groups, project) => {
+        // First filter projects by selected year if not "all"
+        const filteredData = selectedYear === 'all' 
+            ? projectData 
+            : projectData.filter(p => p.project_year == selectedYear); // Using loose equality to handle string/int mismatch
+
+        return filteredData.reduce((groups, project) => {
             const categoryName = project.category?.name || 'Uncategorized';
             const year = project.project_year || 'Unknown Year';
             const groupKey = selectedYear === 'all' 
@@ -68,6 +80,60 @@ export default function ManageProject({ projects, categories, availableLetters }
         }, {});
     }, [projectData, selectedYear]);
 
+    // Sort the initial groupedProjects by year to maintain consistent order
+    const sortedGroupedProjects = useMemo(() => {
+        if (selectedYear !== 'all') return groupedProjects;
+        
+        const entries = Object.entries(groupedProjects);
+        entries.sort(([, groupA], [, groupB]) => {
+            // Handle "Unknown Year" by putting it at the end
+            if (groupA.year === 'Unknown Year') return 1;
+            if (groupB.year === 'Unknown Year') return -1;
+            // Sort by year in descending order, then by category name
+            if (groupA.year !== groupB.year) {
+                return parseInt(groupB.year) - parseInt(groupA.year);
+            }
+            return groupA.categoryName.localeCompare(groupB.categoryName);
+        });
+        
+        return Object.fromEntries(entries);
+    }, [groupedProjects, selectedYear]);
+
+    // Group by year for better organization
+    const projectsByYear = useMemo(() => {
+        if (selectedYear !== 'all') {
+            // When a specific year is selected, just return the grouped projects as-is
+            return new Map([[selectedYear, Object.entries(sortedGroupedProjects)]]);
+        }
+
+        // When showing all years, group by year using Map to preserve insertion order
+        const yearGroups = new Map();
+
+        Object.entries(sortedGroupedProjects).forEach(([groupKey, group]) => {
+            const { year } = group;
+
+            if (!yearGroups.has(year)) {
+                yearGroups.set(year, []);
+            }
+
+            yearGroups.get(year).push([groupKey, group]);
+        });
+
+        return yearGroups;
+    }, [sortedGroupedProjects, selectedYear]);
+
+    // Auto-expand the single year on the current page (1 year per page pagination)
+    useEffect(() => {
+        if (selectedYear !== 'all') return;
+
+        // When showing all years with per-year pagination, auto-expand the year on current page
+        if (projectsByYear.size > 0) {
+            // Get the year on the current page (only 1 year per page now)
+            const currentPageYear = Array.from(projectsByYear.keys())[0];
+            setExpandedYears(new Set([currentPageYear]));
+        }
+    }, [selectedYear, projectsByYear]);
+
     // Initialize categories - preserve user preferences or open new categories
     useEffect(() => {
         setOpenCategories(prevOpen => {
@@ -76,7 +142,8 @@ export default function ManageProject({ projects, categories, availableLetters }
             // Only add new categories that don't exist yet, default to closed
             Object.keys(groupedProjects).forEach(groupKey => {
                 if (!(groupKey in updatedOpen)) {
-                    updatedOpen[groupKey] = false; // Default to closed for new categories
+                    // Auto-open categories when filtering by specific year
+                    updatedOpen[groupKey] = selectedYear !== 'all';
                 }
             });
 
@@ -89,7 +156,7 @@ export default function ManageProject({ projects, categories, availableLetters }
 
             return updatedOpen;
         });
-    }, [groupedProjects]);
+    }, [groupedProjects, selectedYear]);
 
     const handleEditProject = (project) => {
         setEditingProject(project);
@@ -111,7 +178,6 @@ export default function ManageProject({ projects, categories, availableLetters }
 
     const handleFilterChange = (status) => {
         setFilterStatus(status);
-        setSelectedLetter('All');
         router.get(route('projects.index'), {
             status: status === 'all' ? null : status,
             search: searchTerm || null,
@@ -121,7 +187,6 @@ export default function ManageProject({ projects, categories, availableLetters }
 
     const handleYearChange = (year) => {
         setSelectedYear(year);
-        setSelectedLetter('All');
         router.get(route('projects.index'), {
             status: filterStatus === 'all' ? null : filterStatus,
             search: searchTerm || null,
@@ -131,7 +196,6 @@ export default function ManageProject({ projects, categories, availableLetters }
 
     const handleSearch = (term) => {
         setSearchTerm(term);
-        setSelectedLetter('All');
         if (term.length >= 2 || term.length === 0) {
             router.get(route('projects.index'), {
                 status: filterStatus === 'all' ? null : filterStatus,
@@ -141,28 +205,69 @@ export default function ManageProject({ projects, categories, availableLetters }
         }
     };
 
-    const handleLetterChange = (letter) => {
-        if (loading) return;
+    // Toggle year expansion/collapse with smooth animation and guardrail to prevent empty UI
+    const toggleYear = (year) => {
+        if (animatingYears.has(year)) return;
         
-        setSelectedLetter(letter);
-        setLoading(true);
-        
-        router.get(route('projects.index'), {
-            status: filterStatus === 'all' ? null : filterStatus,
-            search: searchTerm || null,
-            year: selectedYear === 'all' ? null : selectedYear,
-            letter: letter === 'All' ? null : letter
-        }, {
-            preserveState: true,
-            preserveScroll: false,
-            onSuccess: (page) => {
-                setProjectData(page.props.projects.data || []);
-            },
-            onFinish: () => {
-                setLoading(false);
+        setExpandedYears(prev => {
+            const newSet = new Set(prev);
+            const isCurrentlyExpanded = newSet.has(year);
+
+            if (isCurrentlyExpanded) {
+                // Prevent collapsing the last open year (avoid empty UI)
+                if (newSet.size === 1) return prev;
+                
+                // Start closing animation
+                setAnimatingYears(prev => new Set(prev).add(year));
+                newSet.delete(year);
+                
+                // Remove from animating after animation completes
+                setTimeout(() => {
+                    setAnimatingYears(prev => {
+                        const newAnimatingSet = new Set(prev);
+                        newAnimatingSet.delete(year);
+                        return newAnimatingSet;
+                    });
+                }, 400);
+            } else {
+                // Calculate height before opening
+                const element = document.getElementById(`year-content-${year}`);
+                if (element) {
+                    const height = element.scrollHeight;
+                    setYearHeights(prev => ({ ...prev, [year]: height }));
+                    setAnimatingYears(prev => new Set(prev).add(year));
+                    
+                    // Open year
+                    newSet.add(year);
+                    
+                    // Remove from animating after animation completes
+                    setTimeout(() => {
+                        setAnimatingYears(prev => {
+                            const newAnimatingSet = new Set(prev);
+                            newAnimatingSet.delete(year);
+                            return newAnimatingSet;
+                        });
+                    }, 400);
+                } else {
+                    // Fallback if element not found
+                    newSet.add(year);
+                }
             }
+
+            return newSet;
         });
     };
+
+    // Reset expanded years when switching back to "All Years" - expand the single year on current page
+    useEffect(() => {
+        if (selectedYear === 'all') {
+            // With per-year pagination, expand the single year on the current page
+            if (projectsByYear.size > 0) {
+                const currentPageYear = Array.from(projectsByYear.keys())[0];
+                setExpandedYears(new Set([currentPageYear]));
+            }
+        }
+    }, [selectedYear, projectsByYear]);
 
     // Helper functions
     const formatPeso = (amount) => {
@@ -204,10 +309,44 @@ export default function ManageProject({ projects, categories, availableLetters }
     };
 
     const toggleCategory = (category) => {
-        setOpenCategories(prev => ({
-            ...prev,
-            [category]: !prev[category]
-        }));
+        if (animatingCategories.has(category)) return;
+        
+        const isOpen = openCategories[category];
+        
+        if (!isOpen) {
+            // Calculate height before opening
+            const element = document.getElementById(`category-content-${category}`);
+            if (element) {
+                const height = element.scrollHeight;
+                setCategoryHeights(prev => ({ ...prev, [category]: height }));
+                setAnimatingCategories(prev => new Set(prev).add(category));
+                
+                // Open category
+                setOpenCategories(prev => ({ ...prev, [category]: true }));
+                
+                // Remove from animating after animation completes
+                setTimeout(() => {
+                    setAnimatingCategories(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(category);
+                        return newSet;
+                    });
+                }, 300);
+            }
+        } else {
+            // Start closing animation
+            setAnimatingCategories(prev => new Set(prev).add(category));
+            setOpenCategories(prev => ({ ...prev, [category]: false }));
+            
+            // Remove from animating after animation completes
+            setTimeout(() => {
+                setAnimatingCategories(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(category);
+                    return newSet;
+                });
+            }, 300);
+        }
     };
 
     const updateProjectData = (updatedProject) => {
@@ -225,46 +364,31 @@ export default function ManageProject({ projects, categories, availableLetters }
         if (!projectsData) return;
         
         if (Array.isArray(projectsData)) {
-            // Replace entire project data with server response
-            setProjectData(projectsData);
+            // Merge new projects with existing data instead of replacing
+            setProjectData(prev => {
+                const existingIds = new Set(prev.map(p => p.id));
+                const newProjects = projectsData.filter(p => !existingIds.has(p.id));
+                
+                // Update existing projects that have changed
+                const updatedExisting = prev.map(p => {
+                    const updated = projectsData.find(np => np.id === p.id);
+                    return updated ? { ...p, ...updated } : p;
+                });
+                
+                // Add new projects at the beginning
+                return [...newProjects, ...updatedExisting];
+            });
         } else if (projectsData.id) {
             // Handle single project (backward compatibility)
             setProjectData(prev => {
                 const existingProjectIds = new Set(prev.map(p => p.id));
                 if (existingProjectIds.has(projectsData.id)) {
-                    return prev.map(p => p.id === projectsData.id ? projectsData : p);
+                    return prev.map(p => p.id === projectsData.id ? { ...p, ...projectsData } : p);
                 }
                 // Add new project at the beginning for newest-first ordering
                 return [projectsData, ...prev];
             });
         }
-    };
-
-    const getAvailableYears = () => {
-        const years = [];
-        const projectYears = new Set();
-        
-        // Extract only actual project_year values from database
-        if (projectData) {
-            projectData.forEach(project => {
-                if (project.project_year && project.project_year !== 'Unknown Year') {
-                    projectYears.add(String(project.project_year));
-                }
-            });
-        }
-        
-        // Sort years in descending order (most recent first)
-        const sortedYears = Array.from(projectYears).sort((a, b) => parseInt(b) - parseInt(a));
-        years.push(...sortedYears);
-        
-        return years;
-    };
-
-    const getAvailableLetters = () => {
-        const backendLetters = availableLetters || [];
-        // Always include 'All' at the beginning and sort properly
-        const allLetters = ['All', ...backendLetters.sort()];
-        return [...new Set(allLetters)]; // Remove duplicates while preserving order
     };
 
     const getCompletionPercentage = (projects) => {
@@ -358,26 +482,26 @@ export default function ManageProject({ projects, categories, availableLetters }
     };
 
     const handleImportSuccess = (result) => {
-        // Show DPWH loading effect
+        // Show DPWH loading effect briefly
         setShowDPWHLoading(true);
         
-        // Show loading for a moment, then display success modal
+        // Show loading for a moment, then display modern confirmation
         setTimeout(() => {
             // Hide loading first
             setShowDPWHLoading(false);
             
-            // Small delay before showing modal to ensure loading is hidden
+            // Show modern, compact confirmation
+            showImportConfirmation(result.imported, result.failed || 0);
+            
+            // Refresh the projects list using Inertia
             setTimeout(() => {
-                showSuccessMessage('Import complete', `Successfully imported ${result.imported} projects.`).then(() => {
-                    // Refresh the projects list using Inertia
-                    router.reload({
-                        only: ['projects'],
-                        preserveState: true,
-                        preserveScroll: true,
-                    });
+                router.reload({
+                    only: ['projects'],
+                    preserveState: true,
+                    preserveScroll: true,
                 });
-            }, 100); // Small delay to ensure loading is fully hidden
-        }, 2000); // Show loading for 2 seconds
+            }, 500); // Small delay to let the toast show first
+        }, 1000); // Show loading for 1 second instead of 2
     };
 
     return (
@@ -387,6 +511,38 @@ export default function ManageProject({ projects, categories, availableLetters }
                 .transition-max-height {
                     transition: max-height 0.3s ease-out;
                     overflow: hidden;
+                }
+                .category-content {
+                    transition: height 0.3s ease-out, opacity 0.3s ease-out;
+                    overflow: hidden;
+                }
+                .category-content.collapsed {
+                    height: 0;
+                    opacity: 0;
+                }
+                .category-content.expanded {
+                    opacity: 1;
+                }
+                .year-content {
+                    transition: max-height 0.4s ease-out, opacity 0.4s ease-out;
+                    overflow: hidden;
+                }
+                .year-content.collapsed {
+                    max-height: 0;
+                    opacity: 0;
+                }
+                .year-content.expanded {
+                    opacity: 1;
+                }
+                .year-header {
+                    transition: all 0.3s ease-out;
+                }
+                .year-header:hover {
+                    transform: translateX(2px);
+                    box-shadow: 0 4px 12px rgba(1, 0, 102, 0.15);
+                }
+                .year-chevron {
+                    transition: transform 0.3s ease-out;
                 }
                 /* Minimize scroll bar indicator */
                 ::-webkit-scrollbar {
@@ -449,251 +605,198 @@ export default function ManageProject({ projects, categories, availableLetters }
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between mb-6" style={{marginTop: '3rem'}}> 
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => {
-                                const letters = getAvailableLetters();
-                                const currentIndex = letters.indexOf(selectedLetter);
-                                if (currentIndex > 0) {
-                                    handleLetterChange(letters[currentIndex - 1]);
-                                }
-                            }}
-                            disabled={loading || getAvailableLetters().indexOf(selectedLetter) <= 0}
-                            className={`p-2 rounded-lg border transition font-montserrat text-sm font-medium ${
-                                !loading && getAvailableLetters().indexOf(selectedLetter) > 0
-                                    ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                                    : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                            }`}
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                            </svg>
-                        </button>
-                        {getAvailableLetters().map(letter => (
-                            <button
-                                key={letter}
-                                onClick={() => handleLetterChange(letter)}
-                                disabled={loading}
-                                className={`px-4 py-2 rounded-lg border transition font-montserrat text-sm font-medium ${
-                                    selectedLetter === letter
-                                        ? "bg-[#Eb3505] text-white border-[#Eb3505]"
-                                        : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                                } ${loading ? "cursor-not-allowed opacity-50" : ""}`}
-                            >
-                                {letter}
-                            </button>
-                        ))}
-                        <button
-                            onClick={() => {
-                                const letters = getAvailableLetters();
-                                const currentIndex = letters.indexOf(selectedLetter);
-                                if (currentIndex < letters.length - 1) {
-                                    handleLetterChange(letters[currentIndex + 1]);
-                                }
-                            }}
-                            disabled={loading || getAvailableLetters().indexOf(selectedLetter) >= getAvailableLetters().length - 1}
-                            className={`p-2 rounded-lg border transition font-montserrat text-sm font-medium ${
-                                !loading && getAvailableLetters().indexOf(selectedLetter) < getAvailableLetters().length - 1
-                                    ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                                    : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                            }`}
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
+                <div className="flex items-center justify-end mb-6 gap-2" style={{marginTop: '3rem'}}> 
+                    <div style={{ width: '400px', flexShrink: 0 }}>
+                        <input
+                            type="text"
+                            placeholder="Search by contract ID or project title..."
+                            value={searchTerm}
+                            onChange={(e) => handleSearch(e.target.value)}
+                            className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent font-montserrat"
+                        />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="flex-1 max-w-md">
-                            <input
-                                type="text"
-                                placeholder="Search projects, contract ID, project ID, category..."
-                                value={searchTerm}
-                                onChange={(e) => handleSearch(e.target.value)}
-                                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent font-montserrat"
-                            />
-                        </div>
 
-                        <div className="w-44">
-                            <select
-                                value={filterStatus}
-                                onChange={(e) => handleFilterChange(e.target.value)}
-                                className="w-full pl-2 pr-4 py-2.5 border border-slate-200 rounded-xl shadow-sm 
-                       focus:outline-none focus:ring-2 focus:ring-[#Eb3505] 
-                       focus:border-transparent font-montserrat text-sm 
-                       bg-white text-black hover:border-slate-300 transition"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="ongoing">Project Ongoing</option>
-                                <option value="completed">Project Complete</option>
-                                <option value="pending">Project Pending</option>
-                            </select>
-                        </div>
-
-                        <div className="w-90">
-                            <select
-                                value={selectedYear}
-                                onChange={(e) => handleYearChange(e.target.value)}
-                                className="w-full pl-2 pr-4 py-2.5 border border-slate-200 rounded-xl shadow-sm 
-                       focus:outline-none focus:ring-2 focus:ring-[#Eb3505] 
-                       focus:border-transparent font-montserrat text-sm 
-                       bg-white text-black hover:border-slate-300 transition"
-                            >
-                                <option value="all">All Years</option>
-                                {getAvailableYears().map((year) => (
-                                    <option key={year} value={year}>
-                                        {year}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Clear Button */}
-                        <button
-                            onClick={() => {
-                                handleSearch('');           // Clear search
-                                handleFilterChange('all');  // Reset status
-                                handleYearChange('all');    // Reset year
-                                setSelectedLetter('All');   // Reset letter
-                            }}
-                            className="px-4 py-2 bg-[#Eb3505] text-white rounded-xl font-montserrat hover:bg-[#c42a03] transition"
+                    <div className="w-44">
+                        <select
+                            value={filterStatus}
+                            onChange={(e) => handleFilterChange(e.target.value)}
+                            className="w-full pl-2 pr-4 py-2.5 border border-slate-200 rounded-xl shadow-sm 
+                   focus:outline-none focus:ring-2 focus:ring-[#Eb3505] 
+                   focus:border-transparent font-montserrat text-sm 
+                   bg-white text-black hover:border-slate-300 transition"
                         >
-                            Clear
-                        </button>
+                            <option value="all">All Status</option>
+                            <option value="ongoing">Project Ongoing</option>
+                            <option value="completed">Project Complete</option>
+                            <option value="pending">Project Pending</option>
+                        </select>
                     </div>
+
+                    <div className="w-90">
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => handleYearChange(e.target.value)}
+                            className="w-full pl-2 pr-4 py-2.5 border border-slate-200 rounded-xl shadow-sm 
+                   focus:outline-none focus:ring-2 focus:ring-[#Eb3505] 
+                   focus:border-transparent font-montserrat text-sm 
+                   bg-white text-black hover:border-slate-300 transition"
+                        >
+                            <option value="all">All Years</option>
+                            {availableYears.map((year) => (
+                                <option key={year} value={year}>
+                                    {year}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <button
+                        onClick={() => {
+                            handleSearch('');
+                            handleFilterChange('all');
+                            handleYearChange('all');
+                        }}
+                        className="px-4 py-2 bg-[#Eb3505] text-white rounded-xl font-montserrat hover:bg-[#c42a03] transition"
+                    >
+                        Clear
+                    </button>
                 </div>
 
-                {/* Projects Grouped by Category */}
+                {/* Projects Grouped by Year and Category */}
                 <div className="mt-8 space-y-4">
-                    {Object.entries(groupedProjects).map(([groupKey, group]) => {
-                        const { year, categoryName, projects: projectsInCategory } = group;
-                        const displayName = categoryName;
-                        const completionPercentage = getCompletionPercentage(projectsInCategory);
-
-                        return (
-                            <div key={groupKey} className="space-y-0">
-                                {/* Year Display - Bookmark Style */}
-                                {selectedYear === 'all' && year && (
-                                    <div className="relative flex items-stretch">
-                                        <div className="bg-[#010066] rounded-tl-lg rounded-bl-lg px-3 py-2 shadow-sm w-1/5 flex-shrink-0 flex items-center justify-center">
-                                            <h3 className="text-sm font-bold text-white font-montserrat whitespace-nowrap">
-                                                {year}
-                                            </h3>
-                                        </div>
-                                        <div className="flex-1"></div>
-                                    </div>
-                                )}
-
-                                {/* Folder Header */}
-                                <div
-                                    onClick={() => toggleCategory(groupKey)}
-                                    className="flex items-center justify-between px-6 py-4 bg-slate-50 border border-slate-200 rounded-tr-xl rounded-br-xl rounded-bl-xl cursor-pointer shadow-sm hover:shadow-md transition-all duration-200"
+                    {Array.from(projectsByYear.entries()).map(([year, categoriesInYear]) => (
+                        <div key={year} className="space-y-1">
+                            {/* Year Display - Full Width Flat Header */}
+                            {selectedYear === 'all' && year && (
+                                <div 
+                                    onClick={() => toggleYear(year)}
+                                    className={`w-full bg-[#010066] rounded-lg px-4 py-3 cursor-pointer hover:bg-[#020077] transition-colors flex items-center justify-between ${
+                                        animatingYears.has(year) ? 'pointer-events-none' : ''
+                                    }`}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex-1 min-w-[300px]">
-                                            <h3 className="font-bold text-slate-800 font-montserrat text-lg">{displayName}</h3>
-                                            <div className="flex items-center gap-3 mt-1">
-                                                <p className="text-slate-600 text-sm font-montserrat">{projectsInCategory.length} project{projectsInCategory.length !== 1 ? 's' : ''}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-20 bg-slate-200 rounded-full h-2 overflow-hidden">
-                                                        <div
-                                                            className={`h-full transition-all duration-500 ${completionPercentage >= 80 ? 'bg-green-500' :
-                                                                    completionPercentage >= 60 ? 'bg-blue-500' :
-                                                                        completionPercentage >= 40 ? 'bg-yellow-500' :
-                                                                            'bg-red-500'
-                                                                }`}
-                                                            style={{ width: `${completionPercentage}%` }}
-                                                        ></div>
-                                                    </div>
-                                                    <span className="text-xs text-slate-600 font-medium">{completionPercentage}%</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <svg
-                                        className={`w-5 h-5 text-slate-600 transform transition-transform duration-200 ${openCategories[groupKey] ? 'rotate-90' : ''}`}
-                                        fill="none"
-                                        stroke="currentColor"
+                                    <h3 className="text-base font-bold text-white font-montserrat">
+                                        {year}
+                                    </h3>
+                                    <svg 
+                                        className={`w-5 h-5 text-white transform transition-transform duration-300 ${expandedYears.has(year) ? 'rotate-180' : ''}`}
+                                        fill="none" 
+                                        stroke="currentColor" 
                                         viewBox="0 0 24 24"
                                     >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </div>
+                            )}
 
-                                {/* Projects Table for this Category */}
-                                <div
-                                    className="transition-max-height border border-slate-200 rounded-xl shadow-sm overflow-hidden"
-                                    style={{ maxHeight: openCategories[groupKey] ? '1000px' : '0px' }}
-                                >
-                                    {projectsInCategory.length === 0 ? (
-                                        <div className="bg-white p-8 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <svg className="w-12 h-12 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                                                </svg>
-                                                <p className="text-slate-600 font-montserrat">No projects found in this category</p>
-                                                <p className="text-slate-500 text-sm font-montserrat mt-1">Try adjusting your search or filters</p>
+                            {/* Categories within this year - Animated container */}
+                            <div
+                                id={`year-content-${year}`}
+                                className={`year-content ${expandedYears.has(year) ? 'expanded' : 'collapsed'}`}
+                                style={{
+                                    maxHeight: expandedYears.has(year) ? `${yearHeights[year] || '2000'}px` : '0'
+                                }}
+                            >
+                                {/* Categories content - Always show categories when year is expanded */}
+                                {((selectedYear === 'all' && year && expandedYears.has(year)) || selectedYear !== 'all') && (
+                                    categoriesInYear.map(([groupKey, group], index) => {
+                                const { categoryName, projects: projectsInCategory } = group;
+                                const displayName = categoryName;
+                                const completionPercentage = getCompletionPercentage(projectsInCategory);
+                                const isFirstCategory = index === 0;
+
+                                return (
+                                    <div key={groupKey} className={`${selectedYear !== 'all' && index > 0 ? 'mt-4' : ''}`}>
+                                        {/* Category Card Header */}
+                                        <div
+                                            onClick={() => toggleCategory(groupKey)}
+                                            className="flex items-center justify-between px-5 py-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-slate-800 font-montserrat text-base">{displayName}</h3>
+                                                    <div className="flex items-center gap-3 mt-1.5">
+                                                        <p className="text-slate-500 text-sm font-montserrat">{projectsInCategory.length} project{projectsInCategory.length !== 1 ? 's' : ''}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                                                <div
+                                                                    className={`h-full transition-all duration-500 ${completionPercentage >= 80 ? 'bg-green-500' :
+                                                                            completionPercentage >= 60 ? 'bg-blue-500' :
+                                                                                completionPercentage >= 40 ? 'bg-yellow-500' :
+                                                                                    'bg-red-500'
+                                                                        }`}
+                                                                    style={{ width: `${completionPercentage}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <span className="text-xs text-slate-500 font-medium">{completionPercentage}%</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
+                                            <svg
+                                                className={`w-5 h-5 text-slate-400 transform transition-transform duration-200 ${openCategories[groupKey] ? 'rotate-180' : ''}`}
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
                                         </div>
-                                    ) : (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm text-left bg-white">
-                                                <thead className="bg-slate-50 border-b border-slate-200">
-                                                    <tr>
-                                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">Contract ID</th>
-                                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">Project Name</th>
-                                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">Project ID</th>
-                                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">Year</th>
-                                                        <th className="px-6 py-4 text-center font-semibold text-slate-700 uppercase tracking-wider">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100">
+
+                                        {/* Projects List for this Category */}
+                                        <div
+                                            id={`category-content-${groupKey}`}
+                                            className={`category-content ${openCategories[groupKey] ? 'expanded' : 'collapsed'}`}
+                                            style={{
+                                                height: openCategories[groupKey] ? `${categoryHeights[groupKey] || 'auto'}px` : '0'
+                                            }}
+                                        >
+                                            {projectsInCategory.length === 0 ? (
+                                                <div className="bg-white p-8 text-center rounded-b-xl">
+                                                    <div className="flex flex-col items-center">
+                                                        <svg className="w-12 h-12 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                                        </svg>
+                                                        <p className="text-slate-500 font-montserrat">No projects found in this category</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="pt-2 space-y-2">
                                                     {projectsInCategory.map((project, index) => {
                                                         const contract = project.contracts?.[0] || {};
 
                                                         return (
-                                                            <tr key={`project-${project.id}-${index}`} className="hover:bg-slate-50 transition-colors cursor-pointer border-b border-slate-100" onClick={() => handleViewDetails(project)}>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-slate-900 font-medium">
-                                                                    {project.contract_id || '-'}
-                                                                </td>
-                                                                <td className="px-6 py-4">
-                                                                    <div className="font-semibold text-slate-900 hover:text-blue-600 transition-colors break-words max-w-xs">{project.title}</div>
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-slate-600">
-                                                                    {project.project_id || '-'}
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-slate-600">
-                                                                    {project.project_year || '-'}
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                                    <div className="flex items-center justify-center gap-3">
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                e.preventDefault();
-                                                                                handleViewDetails(project);
-                                                                            }}
-                                                                            className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium shadow-sm"
-                                                                        >
-                                                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7z" />
-                                                                            </svg>
-                                                                            View
-                                                                        </button>
+                                                            <div 
+                                                                key={`project-${project.id}-${index}`} 
+                                                                className="bg-white rounded-xl p-4 hover:bg-slate-50 transition-colors cursor-pointer shadow-sm"
+                                                                onClick={() => handleViewDetails(project)}
+                                                            >
+                                                                <div className="flex items-start justify-between gap-4">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <span className="text-xs font-medium text-slate-400">{project.contract_id || 'No Contract ID'}</span>
+                                                                            <span className="text-xs text-slate-300">|</span>
+                                                                            <span className="text-xs text-slate-400">{project.project_id || '-'}</span>
+                                                                        </div>
+                                                                        <h4 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-1">{project.title}</h4>
+                                                                        <div className="flex items-center gap-3 text-xs text-slate-500">
+                                                                            <span>{project.project_year || '-'}</span>
+                                                                            <span>{project.formatted_project_cost || formatPeso(project.project_cost || 0)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 shrink-0">
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
                                                                                 e.preventDefault();
                                                                                 handleEditProject(project);
                                                                             }}
-                                                                            className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm"
+                                                                            className="flex items-center gap-1.5 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm"
+                                                                            title="Edit Project"
                                                                         >
-                                                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                                             </svg>
-                                                                            Edit
+                                                                            <span>Edit</span>
                                                                         </button>
                                                                         <button
                                                                             type="button"
@@ -702,29 +805,104 @@ export default function ManageProject({ projects, categories, availableLetters }
                                                                                 e.preventDefault();
                                                                                 handleArchiveProject(project);
                                                                             }}
-                                                                            className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium shadow-sm cursor-pointer"
-                                                                            style={{ pointerEvents: 'auto' }}
+                                                                            className="flex items-center gap-1.5 px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium shadow-sm"
+                                                                            title="Archive Project"
                                                                         >
-                                                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                                                                             </svg>
-                                                                            Archive
+                                                                            <span>Archive</span>
                                                                         </button>
                                                                     </div>
-                                                                </td>
-                                                            </tr>
+                                                                </div>
+                                                            </div>
                                                         );
                                                     })}
-                                                </tbody>
-                                            </table>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
 
                             </div>
                         );
-                    })}
+                                    })
+                                )}
+                                </div>
+                            </div>
+                    ))}
                 </div>
+
+                {/* Page Number Pagination - Only show when filtering by specific year */}
+                {selectedYear !== 'all' && projects?.data && projects.data.length > 0 && (
+                    <div className="flex justify-center mt-8 mb-6">
+                        <div className="flex items-center gap-2">
+                            {/* Previous Button */}
+                            <button
+                                onClick={() => {
+                                    if (projects.prev_page_url) {
+                                        router.get(projects.prev_page_url, {}, { 
+                                            preserveState: true, 
+                                            preserveScroll: true 
+                                        });
+                                    }
+                                }}
+                                disabled={!projects.prev_page_url || loading}
+                                className={`px-3 py-2 rounded-lg border transition font-montserrat text-sm font-medium ${
+                                    projects.prev_page_url && !loading
+                                        ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                                        : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                }`}
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+
+                            {/* Page Numbers */}
+                            {Array.from({ length: projects.last_page || 1 }, (_, i) => i + 1).map(pageNum => (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => {
+                                        const pageUrl = route('projects.index', { page: pageNum });
+                                        router.get(pageUrl, {}, { 
+                                            preserveState: true, 
+                                            preserveScroll: false 
+                                        });
+                                    }}
+                                    disabled={loading || pageNum === (projects.current_page || 1)}
+                                    className={`px-4 py-2 rounded-lg border transition font-montserrat text-sm font-medium ${
+                                        pageNum === (projects.current_page || 1)
+                                            ? "bg-[#Eb3505] text-white border-[#Eb3505]"
+                                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                                    } ${loading ? "cursor-not-allowed opacity-50" : ""}`}
+                                >
+                                    {pageNum}
+                                </button>
+                            ))}
+
+                            {/* Next Button */}
+                            <button
+                                onClick={() => {
+                                    if (projects.next_page_url) {
+                                        router.get(projects.next_page_url, {}, { 
+                                            preserveState: true, 
+                                            preserveScroll: true 
+                                        });
+                                    }
+                                }}
+                                disabled={!projects.next_page_url || loading}
+                                className={`px-3 py-2 rounded-lg border transition font-montserrat text-sm font-medium ${
+                                    projects.next_page_url && !loading
+                                        ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                                        : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                }`}
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Loading State */}
                 {loading && (
@@ -762,7 +940,7 @@ export default function ManageProject({ projects, categories, availableLetters }
                     categories={categories || []}
                     selectedYear={selectedYear}
                     updateProjectData={addNewProject}
-                    availableYears={getAvailableYears()}
+                    availableYears={projects?.data && Array.from(new Set(projects.data.map(p => p.project_year).filter(Boolean))) || []}
                 />
 
                 {/* Edit Project Modal */}
@@ -772,7 +950,7 @@ export default function ManageProject({ projects, categories, availableLetters }
                     project={editingProject}
                     categories={categories || []}
                     updateProjectData={updateProjectData}
-                    availableYears={getAvailableYears()}
+                    availableYears={projects?.data && Array.from(new Set(projects.data.map(p => p.project_year).filter(Boolean))) || []}
                 />
 
                 {/* Project Details Modal - Separate Component */}
