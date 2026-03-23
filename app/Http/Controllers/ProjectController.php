@@ -333,14 +333,22 @@ class ProjectController extends Controller
             }
         }
 
-        // Handle images
+        // Handle images - store binary data as base64 in database
         if (isset($validated['images']) && is_array($validated['images'])) {
             foreach ($validated['images'] as $image) {
-                $path = $image->store('projects', 'public');
-                $project->images()->create([
-                    'project_id' => $project->id,
-                    'image_path' => $path,
-                ]);
+                try {
+                    $imageData = file_get_contents($image->getPathname());
+                    // Encode binary data as base64 to store in LONGTEXT
+                    $base64Data = base64_encode($imageData);
+                    
+                    $project->images()->create([
+                        'project_id' => $project->id,
+                        'image_path' => $base64Data, // Store base64 encoded data
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to store image to database: ' . $e->getMessage());
+                    // Continue with other images even if one fails
+                }
             }
         }
 
@@ -489,6 +497,22 @@ class ProjectController extends Controller
      */
     public function update(Request $request, Project $project)
     {
+        // Simple log to see if this method is called
+        \Log::info('Project update method called', [
+            'project_id' => $project->id,
+            'request_method' => $request->method(),
+            'has_images' => $request->hasFile('images'),
+            'all_request_keys' => array_keys($request->all())
+        ]);
+        
+        // Log incoming request data for debugging
+        \Log::info('Update request received', [
+            'has_files' => $request->hasFile('images'),
+            'all_files' => array_keys($request->allFiles()),
+            'request_keys' => array_keys($request->all()),
+            'images_count' => count($request->file('images', []))
+        ]);
+        
         // Convert empty strings to null for proper validation
         $requestData = $request->all();
         $requestData = array_map(function($value) {
@@ -723,21 +747,40 @@ class ProjectController extends Controller
             foreach ($validated['removed_images'] as $imageId) {
                 $image = $project->images()->find($imageId);
                 if ($image) {
-                    Storage::disk('public')->delete($image->image_path);
+                    // For backward compatibility, delete file if it exists
+                    if ($image->image_path && str_contains($image->image_path, '/')) {
+                        Storage::disk('public')->delete($image->image_path);
+                    }
                     $image->delete();
                 }
             }
         }
 
-        // Add new images
+        // Add new images - store binary data as base64 in database
         if (isset($validated['images']) && is_array($validated['images'])) {
+            \Log::info('Processing images for update', ['count' => count($validated['images'])]);
+            
             foreach ($validated['images'] as $index => $image) {
-                $path = $image->store('projects', 'public');
-                $project->images()->create([
-                    'project_id' => $project->id,
-                    'image_path' => $path,
-                ]);
+                try {
+                    \Log::info('Processing image', ['index' => $index, 'type' => get_class($image)]);
+                    
+                    $imageData = file_get_contents($image->getPathname());
+                    // Encode binary data as base64 to store in LONGTEXT
+                    $base64Data = base64_encode($imageData);
+                    
+                    $project->images()->create([
+                        'project_id' => $project->id,
+                        'image_path' => $base64Data, // Store base64 encoded data
+                    ]);
+                    
+                    \Log::info('Image stored successfully', ['index' => $index]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to store image to database: ' . $e->getMessage());
+                    // Continue with other images even if one fails
+                }
             }
+        } else {
+            \Log::info('No images found in validated data', ['validated_keys' => array_keys($validated)]);
         }
 
         // Get all projects with relationships and filters (same as index method)
@@ -882,11 +925,18 @@ class ProjectController extends Controller
         ]);
 
         foreach ($request->file('images') as $image) {
-            $path = $image->store('projects', 'public');
-            
-            $project->images()->create([
-                'image_path' => $path
-            ]);
+            try {
+                $imageData = file_get_contents($image->getPathname());
+                // Encode binary data as base64 to store in LONGTEXT
+                $base64Data = base64_encode($imageData);
+                
+                $project->images()->create([
+                    'image_path' => $base64Data, // Store base64 encoded data
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Failed to store image to database: ' . $e->getMessage());
+                // Continue with other images even if one fails
+            }
         }
 
         return redirect()->route('projects.show', $project)

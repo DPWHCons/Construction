@@ -8,6 +8,8 @@ use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ContractorController;
 use App\Http\Controllers\GalleryController;
+use App\Http\Controllers\ImageController;
+use App\Http\Controllers\DebugController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -15,6 +17,16 @@ use Inertia\Inertia;
 Route::get('/', function () {
     return redirect()->route('login');
 });
+
+// Debug routes (temporary for debugging)
+Route::get('/test-db', [DebugController::class, 'testDatabase']);
+Route::post('/test-image-upload', [DebugController::class, 'testImageUpload']);
+Route::get('/test-upload', function () {
+    return view('test_upload');
+});
+
+// Image serving route (publicly accessible for display)
+Route::get('/images/{id}', [ImageController::class, 'show'])->name('images.show');
 
 Route::middleware(['auth', 'session.activity'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
