@@ -63,13 +63,22 @@ Route::middleware(['auth', 'session.activity'])->group(function () {
     Route::post('/archive/projects/{id}/restore', [ArchiveController::class, 'restoreProject'])->name('archive.projects.restore');
     Route::delete('/archive/projects/{id}', [ArchiveController::class, 'deleteProject'])->name('archive.projects.delete');
     
+    // Image Archive Routes
+    Route::post('/archive/images/{id}/restore', [ArchiveController::class, 'restoreImage'])->name('archive.images.restore');
+    Route::delete('/archive/images/{id}', [ArchiveController::class, 'deleteImage'])->name('archive.images.delete');
+    
+    // Contractor Archive Routes
+    Route::post('/archive/contractors/{name}/restore', [ArchiveController::class, 'restoreContractor'])->name('archive.contractors.restore');
+    Route::delete('/archive/contractors/{name}', [ArchiveController::class, 'deleteContractor'])->name('archive.contractors.delete');
+    
     // Bulk Archive Operations
     Route::post('/archive/categories/restore-all', [ArchiveController::class, 'restoreAllCategories'])->name('archive.categories.restore-all');
     Route::post('/archive/categories/delete-all', [ArchiveController::class, 'deleteAllCategories'])->name('archive.categories.delete-all');
+    Route::post('/archive/categories/{id}/restore', [ArchiveController::class, 'restoreCategory'])->name('archive.categories.restore');
+    Route::delete('/archive/categories/{id}', [ArchiveController::class, 'deleteCategory'])->name('archive.categories.delete');
     Route::post('/archive/projects/restore-images', [ArchiveController::class, 'restoreProjectImages'])->name('archive.projects.restore-images');
     Route::post('/archive/projects/delete-images', [ArchiveController::class, 'deleteProjectImages'])->name('archive.projects.delete-images');
     
-    // Contractor Archive Operations
     Route::post('/archive/contractors/restore-all', [ArchiveController::class, 'restoreAllContractors'])->name('archive.contractors.restore-all');
     Route::post('/archive/contractors/delete-all', [ArchiveController::class, 'deleteAllContractors'])->name('archive.contractors.delete-all');
     Route::post('/archive/projects/restore-contractors', [ArchiveController::class, 'restoreProjectContractors'])->name('archive.projects.restore-contractors');

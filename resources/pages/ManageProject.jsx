@@ -34,7 +34,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
     const [projectData, setProjectData] = useState(projects?.data || []);
 
-    const { refresh } = useAutoRefresh(1000, {
+    const { refresh, stopAutoRefresh, startAutoRefresh } = useAutoRefresh(30000, {
         preserveScroll: true,
         preserveState: true,
     });
@@ -62,16 +62,14 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
     // Group projects by year and category for transparency
     const groupedProjects = useMemo(() => {
-        // First filter projects by selected year if not "all"
-        const filteredData = selectedYear === 'all' 
-            ? projectData 
-            : projectData.filter(p => p.project_year == selectedYear); // Using loose equality to handle string/int mismatch
+        // Backend already filtered by year - just group the data
+        const filteredData = projectData;
 
         return filteredData.reduce((groups, project) => {
             const categoryName = project.category?.name || 'Uncategorized';
             const year = project.project_year || 'Unknown Year';
             const groupKey = selectedYear === 'all' 
-                ? `${year}__${categoryName}`   // use a delimiter unlikely to be in category name
+                ? `${year}__${categoryName}`
                 : categoryName;
 
             if (!groups[groupKey]) groups[groupKey] = { year, categoryName, projects: [] };
@@ -122,19 +120,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
         return yearGroups;
     }, [sortedGroupedProjects, selectedYear]);
 
-    // Auto-expand the single year on the current page (1 year per page pagination)
-    useEffect(() => {
-        if (selectedYear !== 'all') return;
-
-        // When showing all years with per-year pagination, auto-expand the year on current page
-        if (projectsByYear.size > 0) {
-            // Get the year on the current page (only 1 year per page now)
-            const currentPageYear = Array.from(projectsByYear.keys())[0];
-            setExpandedYears(new Set([currentPageYear]));
-        }
-    }, [selectedYear, projectsByYear]);
-
-    // Initialize categories - preserve user preferences or open new categories
     useEffect(() => {
         setOpenCategories(prevOpen => {
             const updatedOpen = { ...prevOpen };
@@ -178,6 +163,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
     const handleFilterChange = (status) => {
         setFilterStatus(status);
+        stopAutoRefresh(); // Stop auto-refresh during filter
         router.get(route('projects.index'), {
             status: status === 'all' ? null : status,
             search: searchTerm || null,
@@ -187,6 +173,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
     const handleYearChange = (year) => {
         setSelectedYear(year);
+        stopAutoRefresh(); // Stop auto-refresh during year change
         router.get(route('projects.index'), {
             status: filterStatus === 'all' ? null : filterStatus,
             search: searchTerm || null,
@@ -197,6 +184,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
     const handleSearch = (term) => {
         setSearchTerm(term);
         if (term.length >= 2 || term.length === 0) {
+            stopAutoRefresh(); // Stop auto-refresh during search
             router.get(route('projects.index'), {
                 status: filterStatus === 'all' ? null : filterStatus,
                 search: term || null,
@@ -258,18 +246,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
         });
     };
 
-    // Reset expanded years when switching back to "All Years" - expand the single year on current page
-    useEffect(() => {
-        if (selectedYear === 'all') {
-            // With per-year pagination, expand the single year on the current page
-            if (projectsByYear.size > 0) {
-                const currentPageYear = Array.from(projectsByYear.keys())[0];
-                setExpandedYears(new Set([currentPageYear]));
-            }
-        }
-    }, [selectedYear, projectsByYear]);
-
-    // Helper functions
     const formatPeso = (amount) => {
         if (!amount || amount === 0) return '₱0.00';
         return new Intl.NumberFormat('en-PH', {
@@ -691,9 +667,9 @@ export default function ManageProject({ projects, categories, availableLetters, 
                             {/* Categories within this year - Animated container */}
                             <div
                                 id={`year-content-${year}`}
-                                className={`year-content ${expandedYears.has(year) ? 'expanded' : 'collapsed'}`}
+                                className={`year-content ${(selectedYear !== 'all' || expandedYears.has(year)) ? 'expanded' : 'collapsed'}`}
                                 style={{
-                                    maxHeight: expandedYears.has(year) ? `${yearHeights[year] || '2000'}px` : '0'
+                                    maxHeight: (selectedYear !== 'all' || expandedYears.has(year)) ? `${yearHeights[year] || '2000'}px` : '0'
                                 }}
                             >
                                 {/* Categories content - Always show categories when year is expanded */}

@@ -83,14 +83,14 @@ export default function Login({ status, canResetPassword }) {
 
                 // Check for specific errors
                 if (errors.username) {
-                    setFieldFeedback(prev => ({ 
-                        ...prev, 
+                    setFieldFeedback(prev => ({
+                        ...prev,
                         username: 'Invalid username'
                     }));
                 }
                 if (errors.password) {
-                    setFieldFeedback(prev => ({ 
-                        ...prev, 
+                    setFieldFeedback(prev => ({
+                        ...prev,
                         password: 'Invalid password'
                     }));
                 }
@@ -183,8 +183,7 @@ export default function Login({ status, canResetPassword }) {
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute top-2 right-4 flex items-center pr-4 text-neutral-200 hover:text-neutral-600 transition mt-2"
-                        >
+                            className="absolute top-2 right-1 flex items-center pr-3 text-neutral-400 hover:text-neutral-600 transition"                        >
                             {showPassword ? (
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -252,7 +251,7 @@ export default function Login({ status, canResetPassword }) {
                 </PrimaryButton>
 
             </form>
-            
+
             {/* Forgot Password Modal */}
             <ForgotPasswordModal
                 show={showForgotPasswordModal}

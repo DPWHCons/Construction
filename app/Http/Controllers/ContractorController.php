@@ -13,7 +13,7 @@ class ContractorController extends Controller
      */
     public function index(Request $request)
     {
-        // Get unique contractors from project_scopes with project counts
+        // Get unique contractors from project_scopes with project counts, excluding archived ones
         $query = DB::table('project_scopes')
             ->select(
                 'contractor_name',
@@ -22,6 +22,7 @@ class ContractorController extends Controller
             )
             ->where('contractor_name', '!=', '')
             ->whereNotNull('contractor_name')
+            ->where('is_archived', false) // Only show non-archived contractors
             ->groupBy('contractor_name')
             ->orderBy('contractor_name');
 
@@ -35,7 +36,7 @@ class ContractorController extends Controller
         // Transform the data to match the expected format
         $contractors->getCollection()->transform(function ($item) {
             return [
-                'id' => $item->contractor_id ?: 0, // Use 0 if no contractor_id
+                'id' => $item->contractor_id ?: 'contractor_' . md5($item->contractor_name), // Use unique hash if no contractor_id
                 'name' => $item->contractor_name,
                 'projects_count' => $item->projects_count,
                 'contact_number' => null,

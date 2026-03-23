@@ -51,25 +51,17 @@ class ProjectController extends Controller
             $query->where('status', $request->status);
         }
 
-        // Filter by category
         if ($request->category_id) {
             $query->where('category_id', $request->category_id);
         }
-
-        // Filter by year (using explicit project_year field)
         if ($request->year && $request->year !== 'all') {
-            $query->where('project_year', $request->year);
+            $query->whereRaw('CAST(project_year AS UNSIGNED) = ?', [(int) $request->year]);
         }
-
-        // Filter by letter (alphabetical pagination)
         if ($request->letter && $request->letter !== 'All') {
             $query->where('title', 'like', $request->letter . '%');
         }
-
-        // Get available letters for alphabetical pagination
         $availableLettersQuery = Project::where('is_archive', false);
         
-        // Apply the same filters to available letters query
         if ($request->search) {
             $searchTerm = $request->search;
             $availableLettersQuery->where(function($q) use ($searchTerm) {
@@ -85,7 +77,7 @@ class ProjectController extends Controller
         }
 
         if ($request->year && $request->year !== 'all') {
-            $availableLettersQuery->where('project_year', $request->year);
+            $availableLettersQuery->whereRaw('CAST(project_year AS UNSIGNED) = ?', [(int) $request->year]);
         }
 
         // Get unique first letters from titles
@@ -455,17 +447,14 @@ class ProjectController extends Controller
         });
         
         // Return Inertia response with updated projects list
-        // Always return 'all' for selectedYear to ensure all years are displayed
+        // Preserve the selected year from the request
         return Inertia::render('ManageProject', [
             'projects' => $projects,
             'categories' => $categories,
             'availableLetters' => $availableLetters,
             'availableYears' => $availableYears,
-            'selectedYear' => 'all',
-            'filters' => array_merge(
-                $request->only(['search', 'status', 'year', 'letter']), 
-                ['year' => 'all']
-            )
+            'selectedYear' => $request->year ?? 'all',
+            'filters' => $request->only(['search', 'status', 'year', 'letter'])
         ])->with('success', 'Project created successfully.');
     }
 
@@ -854,17 +843,14 @@ class ProjectController extends Controller
         });
 
         // Return Inertia response with updated projects list
-        // Always return 'all' for selectedYear to ensure all years are displayed
+        // Preserve the selected year from the request
         return Inertia::render('ManageProject', [
             'projects' => $projects,
             'categories' => $categories,
             'availableLetters' => $availableLetters,
             'availableYears' => $availableYears,
-            'selectedYear' => 'all',
-            'filters' => array_merge(
-                $request->only(['search', 'status', 'year', 'letter']), 
-                ['year' => 'all']
-            )
+            'selectedYear' => $request->year ?? 'all',
+            'filters' => $request->only(['search', 'status', 'year', 'letter'])
         ])->with('success', 'Project updated successfully.');
     }
 

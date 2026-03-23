@@ -334,6 +334,52 @@ export default function Archive({ archivedImages }) {
         });
     };
 
+    // Individual image restore function
+    const handleRestoreImage = async (image) => {
+        try {
+            const result = await showRestoreConfirmation(image.caption || 'Image');
+            
+            if (result.isConfirmed) {
+                router.post(route('archive.images.restore', image.id), {}, {
+                    onSuccess: (page) => {
+                        showSuccessToast(`Image "${image.caption || 'Untitled'}" restored successfully!`);
+                        window.location.reload();
+                    },
+                    onError: (errors) => {
+                        const errorMessage = errors?.message || errors?.error || 'Failed to restore image. Please try again.';
+                        showErrorToast(errorMessage);
+                    },
+                    preserveState: false,
+                });
+            }
+        } catch (error) {
+            showErrorToast('An unexpected error occurred. Please try again.');
+        }
+    };
+
+    // Individual image delete function
+    const handleDeleteImage = async (image) => {
+        try {
+            const result = await showDeleteConfirmation(image.caption || 'Image', 'image');
+            
+            if (result.isConfirmed) {
+                router.delete(route('archive.images.delete', image.id), {}, {
+                    onSuccess: (page) => {
+                        showSuccessToast(`Image "${image.caption || 'Untitled'}" permanently deleted!`);
+                        window.location.reload();
+                    },
+                    onError: (errors) => {
+                        const errorMessage = errors?.message || errors?.error || 'Failed to delete image. Please try again.';
+                        showErrorToast(errorMessage);
+                    },
+                    preserveState: false,
+                });
+            }
+        } catch (error) {
+            showErrorToast('An unexpected error occurred. Please try again.');
+        }
+    };
+
     const handleRestore = async () => {
         if (selectedImages.size === 0) return;
         
@@ -613,7 +659,7 @@ export default function Archive({ archivedImages }) {
                                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
-                                                        Delete Forever
+                                                        Delete
                                                     </button>
                                                 </div>
                                             </td>
@@ -712,19 +758,28 @@ export default function Archive({ archivedImages }) {
 
         const handleRestore = async (category) => {
             try {
+                console.log('Attempting to restore category:', category);
                 const result = await showRestoreConfirmation(category.name);
                 
                 if (result.isConfirmed) {
-                    router.post(route('categories.restore', category.id), {}, {
-                        onSuccess: () => {
+                    console.log('User confirmed, sending request to:', route('archive.categories.restore', category.id));
+                    
+                    router.post(route('archive.categories.restore', category.id), {}, {
+                        onSuccess: (page) => {
+                            console.log('Category restore successful:', page);
                             showSuccessToast(`Category "${category.name}" restored successfully!`);
+                            // Redirect to categories page to see the restored category
+                            window.location.href = route('categories.index');
                         },
                         onError: (errors) => {
-                            showErrorToast('Failed to restore category. Please try again.');
+                            console.error('Category restore errors:', errors);
+                            const errorMessage = errors?.message || errors?.error || 'Failed to restore category. Please try again.';
+                            showErrorToast(errorMessage);
                         }
                     });
                 }
             } catch (error) {
+                console.error('Category restore error:', error);
                 showErrorToast('An unexpected error occurred. Please try again.');
             }
         };
@@ -734,7 +789,7 @@ export default function Archive({ archivedImages }) {
                 const result = await showDeleteConfirmation(category.name, 'category');
                 
                 if (result.isConfirmed) {
-                    router.delete(route('categories.destroy', category.id), {}, {
+                    router.delete(route('archive.categories.delete', category.id), {}, {
                         onSuccess: () => {
                             showSuccessToast(`Category "${category.name}" permanently deleted!`);
                         },
@@ -821,7 +876,7 @@ export default function Archive({ archivedImages }) {
 
                                             {/* Archived Date */}
                                             <td className="px-6 py-4 whitespace-nowrap text-slate-600">
-                                                {new Date(category.archived_at).toLocaleDateString()}
+                                                {category.archived_at ? new Date(category.archived_at).toLocaleDateString() : 'N/A'}
                                             </td>
 
                                             {/* Actions */}
@@ -843,7 +898,7 @@ export default function Archive({ archivedImages }) {
                                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
-                                                        Delete Forever
+                                                        Delete
                                                     </button>
                                                 </div>
                                             </td>
@@ -942,19 +997,26 @@ export default function Archive({ archivedImages }) {
 
         const handleRestore = async (contractor) => {
             try {
+                console.log('Attempting to restore contractor:', contractor);
                 const result = await showRestoreConfirmation(contractor.contractor_name);
                 
                 if (result.isConfirmed) {
-                    router.post(route('contractors.restore', contractor.contractor_name), {}, {
-                        onSuccess: () => {
+                    console.log('User confirmed, sending request to:', route('archive.contractors.restore', contractor.contractor_name));
+                    
+                    router.post(route('archive.contractors.restore', contractor.contractor_name), {}, {
+                        onSuccess: (page) => {
+                            console.log('Contractor restore successful:', page);
                             showSuccessToast(`Contractor "${contractor.contractor_name}" restored successfully!`);
                         },
                         onError: (errors) => {
-                            showErrorToast('Failed to restore contractor. Please try again.');
+                            console.error('Contractor restore errors:', errors);
+                            const errorMessage = errors?.message || errors?.error || 'Failed to restore contractor. Please try again.';
+                            showErrorToast(errorMessage);
                         }
                     });
                 }
             } catch (error) {
+                console.error('Contractor restore error:', error);
                 showErrorToast('An unexpected error occurred. Please try again.');
             }
         };
@@ -964,7 +1026,7 @@ export default function Archive({ archivedImages }) {
                 const result = await showDeleteConfirmation(contractor.contractor_name, 'contractor');
                 
                 if (result.isConfirmed) {
-                    router.delete(route('contractors.destroy', contractor.contractor_name), {}, {
+                    router.delete(route('archive.contractors.delete', contractor.contractor_name), {}, {
                         onSuccess: () => {
                             showSuccessToast(`Contractor "${contractor.contractor_name}" permanently deleted!`);
                         },
@@ -1051,7 +1113,7 @@ export default function Archive({ archivedImages }) {
 
                                             {/* Archived Date */}
                                             <td className="px-6 py-4 whitespace-nowrap text-slate-600">
-                                                {new Date(contractor.archived_at).toLocaleDateString()}
+                                                {contractor.archived_at ? new Date(contractor.archived_at).toLocaleDateString() : 'N/A'}
                                             </td>
 
                                             {/* Actions */}
@@ -1073,7 +1135,7 @@ export default function Archive({ archivedImages }) {
                                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
-                                                        Delete Forever
+                                                        Delete
                                                     </button>
                                                 </div>
                                             </td>
@@ -1503,23 +1565,53 @@ export default function Archive({ archivedImages }) {
                                                                             
                                                                             {/* Hover Overlay */}
                                                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center">
-                                                                                <div 
-                                                                                    className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-center cursor-pointer"
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        openImageModal(image, imageIndex);
-                                                                                    }}
-                                                                                >
-                                                                                    <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                                                                                    </svg>
+                                                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-center">
+                                                                                    <div className="flex flex-col gap-1">
+                                                                                        <div 
+                                                                                            className="cursor-pointer"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                openImageModal(image, imageIndex);
+                                                                                            }}
+                                                                                        >
+                                                                                            <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                                                                            </svg>
+                                                                                        </div>
+                                                                                        <div className="flex gap-1 justify-center">
+                                                                                            <button
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    handleRestoreImage(image);
+                                                                                                }}
+                                                                                                className="p-0.5 bg-green-600 rounded hover:bg-green-700 transition-colors"
+                                                                                                title="Restore this image"
+                                                                                            >
+                                                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                                                                                </svg>
+                                                                                            </button>
+                                                                                            <button
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    handleDeleteImage(image);
+                                                                                                }}
+                                                                                                className="p-0.5 bg-red-600 rounded hover:bg-red-700 transition-colors"
+                                                                                                title="Delete this image permanently"
+                                                                                            >
+                                                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                                </svg>
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
                                                                                 </div>
                                                                             </div>
 
                                                                             {/* Archive Date Badge */}
                                                                             <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                                                                 <div className="bg-black/60 backdrop-blur-sm text-white text-xs px-1 py-0.5 rounded">
-                                                                                    {new Date(image.archived_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                                    {image.archived_at ? new Date(image.archived_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
                                                                                 </div>
                                                                             </div>
                                                                         </div>

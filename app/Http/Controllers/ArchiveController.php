@@ -9,6 +9,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 
 class ArchiveController extends Controller
 {
@@ -56,7 +57,7 @@ class ArchiveController extends Controller
                 'image_path' => $image->image_path,
                 'caption' => $image->caption ?? 'Untitled Image',
                 'originalProject' => $image->project->title ?? 'Unknown Project',
-                'deletedDate' => $image->archived_at->format('M j, Y'),
+                'deletedDate' => $image->archived_at ? $image->archived_at->format('M j, Y') : 'N/A',
                 'deletionReason' => 'Manually archived',
                 'archived_at' => $image->archived_at,
             ];
@@ -132,6 +133,87 @@ class ArchiveController extends Controller
     }
 
     /**
+     * Restore a single archived category
+     */
+    public function restoreCategory(Request $request, $id)
+    {
+        \Log::info('restoreCategory called', ['id' => $id]);
+        
+        try {
+            DB::beginTransaction();
+            
+            $category = Category::where('is_archived', true)->find($id);
+            \Log::info('Category found', ['category' => $category ? $category->toArray() : null]);
+            
+            if (!$category) {
+                \Log::warning('Category not found', ['id' => $id]);
+                DB::rollBack();
+                return redirect()->route('archive.index')->with('error', 'Category not found');
+            }
+            
+            \Log::info('Before update', ['is_archived' => $category->is_archived]);
+            
+            $category->update([
+                'is_archived' => false,
+                'archived_at' => null,
+            ]);
+            
+            \Log::info('After update', ['is_archived' => $category->fresh()->is_archived]);
+            
+            // Clear category-related caches
+            $this->clearCategoryCaches();
+            
+            DB::commit();
+            
+            \Log::info('Category restored successfully');
+            
+            return redirect()->route('categories.index')->with('success', 'Category restored successfully.');
+            
+        } catch (\Exception $e) {
+            \Log::error('restoreCategory error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            DB::rollBack();
+            
+            return redirect()->route('archive.index')->with('error', 'Failed to restore category: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Permanently delete a single archived category
+     */
+    public function deleteCategory(Request $request, $id)
+    {
+        try {
+            DB::beginTransaction();
+            
+            $category = Category::where('is_archived', true)->find($id);
+            
+            if (!$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Category not found'
+                ], 404);
+            }
+            
+            $category->delete();
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Category permanently deleted',
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete category: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Restore an archived project
      */
     public function restoreProject(Request $request, $id)
@@ -144,10 +226,7 @@ class ArchiveController extends Controller
             
             if (!$project) {
                 DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Project not found'
-                ], 404);
+                return redirect()->route('archive.index')->with('error', 'Project not found');
             }
             
             $project->update([
@@ -156,18 +235,12 @@ class ArchiveController extends Controller
             
             DB::commit();
             
-            return response()->json([
-                'success' => true,
-                'message' => 'Project restored successfully',
-            ]);
+            return redirect()->route('archive.index')->with('success', 'Project restored successfully');
             
         } catch (\Exception $e) {
             DB::rollBack();
             
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to restore project: ' . $e->getMessage(),
-            ], 500);
+            return redirect()->route('archive.index')->with('error', 'Failed to restore project: ' . $e->getMessage());
         }
     }
 
@@ -354,6 +427,143 @@ class ArchiveController extends Controller
     }
 
     /**
+     * Restore a single archived image
+     */
+    public function restoreImage($id)
+    {
+        try {
+            $image = ProjectImage::where('is_archived', true)->find($id);
+            
+            if (!$image) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Image not found or not archived'
+                ], 404);
+            }
+            
+            $image->is_archived = false;
+            $image->archived_at = null;
+            $image->save();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Image restored successfully',
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to restore image: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Permanently delete a single archived image
+     */
+    public function deleteImage($id)
+    {
+        try {
+            $image = ProjectImage::where('is_archived', true)->find($id);
+            
+            if (!$image) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Image not found or not archived'
+                ], 404);
+            }
+            
+            // Delete file from storage if it exists
+            if ($image->image_path && Storage::disk('public')->exists($image->image_path)) {
+                Storage::disk('public')->delete($image->image_path);
+            }
+            
+            // Delete database record
+            $image->delete();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Image permanently deleted',
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete image: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Restore a single archived contractor
+     */
+    public function restoreContractor($name)
+    {
+        \Log::info('restoreContractor called', ['name' => $name]);
+        
+        try {
+            $restoredCount = DB::table('project_scopes')
+                ->where('contractor_name', $name)
+                ->where('is_archived', true)
+                ->update([
+                    'is_archived' => false,
+                    'archived_at' => null,
+                ]);
+            
+            \Log::info('Contractor restore result', ['name' => $name, 'restoredCount' => $restoredCount]);
+            
+            if ($restoredCount === 0) {
+                \Log::warning('Contractor not found or already restored', ['name' => $name]);
+                return redirect()->route('archive.index')->with('error', 'Contractor not found or already restored');
+            }
+            
+            \Log::info('Contractor restored successfully');
+            
+            return redirect()->route('archive.index')->with('success', 'Contractor restored successfully');
+            
+        } catch (\Exception $e) {
+            \Log::error('restoreContractor error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return redirect()->route('archive.index')->with('error', 'Failed to restore contractor: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Permanently delete a single archived contractor
+     */
+    public function deleteContractor($name)
+    {
+        try {
+            $deletedCount = DB::table('project_scopes')
+                ->where('contractor_name', $name)
+                ->where('is_archived', true)
+                ->update([
+                    'contractor_name' => null,
+                    'is_archived' => false,
+                    'archived_at' => null,
+                ]);
+            
+            if ($deletedCount === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Contractor not found'
+                ], 404);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Contractor permanently deleted',
+                'deleted_count' => $deletedCount,
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete contractor: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Restore all archived contractors
      */
     public function restoreAllContractors(Request $request)
@@ -497,5 +707,14 @@ class ArchiveController extends Controller
                 'message' => 'Failed to delete contractors: ' . $e->getMessage(),
             ], 500);
         }
+    }
+    
+    /**
+     * Clear all category-related caches
+     */
+    private function clearCategoryCaches()
+    {
+        // Clear all caches by flushing (simpler and driver-agnostic)
+        Cache::flush();
     }
 }

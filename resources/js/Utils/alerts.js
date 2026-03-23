@@ -26,6 +26,28 @@ style.textContent = `
         }
     }
     
+    /* Custom styles for left-right button layout */
+    .swal2-restore-actions {
+        display: flex !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        gap: 1rem !important;
+    }
+    
+    .swal2-restore-confirm {
+        order: 2 !important;
+        margin-left: auto !important;
+    }
+    
+    .swal2-restore-cancel {
+        order: 1 !important;
+        margin-right: auto !important;
+    }
+    
+    .swal2-restore-popup .swal2-actions {
+        padding: 0 1.5rem 1.5rem 1.5rem !important;
+    }
+    
     .animate-slide-in-right {
         animation: slide-in-right 0.3s ease-out;
     }
@@ -128,8 +150,7 @@ export const showDeleteConfirmation = (itemName, itemType = 'item') => {
         html: `
             <div class="space-y-3">
                 <p class="text-slate-700">
-                    Are you sure you want to delete the ${itemType} 
-                    <span class="font-semibold text-slate-900">"${itemName}"</span>?
+                    Are you sure you want to permanently delete <span class="font-semibold text-slate-900">"${itemName}"</span>?
                 </p>
                 <div class="rounded-xl border border-red-200/70 bg-red-50/70 p-3">
                     <div class="flex items-start gap-2">
@@ -137,8 +158,8 @@ export const showDeleteConfirmation = (itemName, itemType = 'item') => {
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                         </svg>
                         <div>
-                            <h4 class="text-red-900 font-semibold">This action can’t be undone.</h4>
-                            <p class="text-red-800 text-sm">This will permanently delete the ${itemType} and its associated data.</p>
+                            <h4 class="text-red-900 font-semibold">This action cannot be undone.</h4>
+                            <p class="text-red-800 text-sm">The ${itemType} will be permanently deleted.</p>
                         </div>
                     </div>
                 </div>
@@ -146,13 +167,16 @@ export const showDeleteConfirmation = (itemName, itemType = 'item') => {
         `,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Delete',
+        confirmButtonText: 'Delete Forever',
         cancelButtonText: 'Cancel',
-        reverseButtons: true,
+        reverseButtons: false,
         customClass: {
-            ...appleSwal.options.customClass,
+            popup: 'swal2-restore-popup',
+            actions: 'swal2-restore-actions',
             confirmButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors',
+                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors swal2-restore-confirm',
+            cancelButton:
+                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors swal2-restore-cancel',
         },
     });
 };
@@ -181,7 +205,7 @@ export const showProjectArchiveConfirmation = (projectName) => {
 
 export const showArchiveConfirmation = (itemName, projectCount = 0) => {
     const hasProjects = projectCount > 0;
-    
+
     return appleSwal.fire({
         title: 'Archive category?',
         html: `
@@ -217,7 +241,6 @@ export const showArchiveConfirmation = (itemName, projectCount = 0) => {
         cancelButtonText: 'Cancel',
         reverseButtons: true,
         customClass: {
-            ...appleSwal.options.customClass,
             confirmButton:
                 'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-[#Eb3505] text-white hover:opacity-95 transition-opacity',
         },
@@ -247,13 +270,17 @@ export const showRestoreConfirmation = (itemName) => {
         `,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Restore',
         cancelButtonText: 'Cancel',
-        reverseButtons: true,
+        confirmButtonText: 'Restore',
+        reverseButtons: false, // Changed to false to keep original order
         customClass: {
-            ...appleSwal.options.customClass,
+            popup: 'swal2-restore-popup',
+            actions: 'swal2-restore-actions',
+
+            cancelButton:
+                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors swal2-restore-cancel',
             confirmButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors',
+                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors swal2-restore-confirm',
         },
     });
 };
@@ -285,7 +312,6 @@ export const showEditConfirmation = (itemName, itemType = 'item') => {
         cancelButtonText: 'Cancel',
         reverseButtons: true,
         customClass: {
-            ...appleSwal.options.customClass,
             confirmButton:
                 'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors',
         },
@@ -295,7 +321,7 @@ export const showEditConfirmation = (itemName, itemType = 'item') => {
 // Modern, compact import confirmation
 export const showImportConfirmation = (imported, failed = 0) => {
     const isSuccess = failed === 0;
-    
+
     return Swal.fire({
         toast: true,
         position: 'top-end',
@@ -318,28 +344,28 @@ export const showImportConfirmation = (imported, failed = 0) => {
         html: `
             <div class="flex items-center gap-3">
                 <div class="flex-shrink-0">
-                    ${isSuccess ? 
-                        `<div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                    ${isSuccess ?
+                `<div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
                             <svg class="w-6 h-6 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                             </svg>
                         </div>` :
-                        `<div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                `<div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                             <svg class="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                             </svg>
                         </div>`
-                    }
+            }
                 </div>
                 <div class="flex-1">
                     <div class="font-semibold text-slate-900">
                         ${isSuccess ? 'Import Successful' : 'Import Failed'}
                     </div>
                     <div class="text-sm ${isSuccess ? 'text-emerald-600' : 'text-slate-600'}">
-                        ${isSuccess ? 
-                            `Successfully imported ${imported} project${imported !== 1 ? 's' : ''}` :
-                            `${failed} project${failed !== 1 ? 's' : ''} failed to import`
-                        }
+                        ${isSuccess ?
+                `Successfully imported ${imported} project${imported !== 1 ? 's' : ''}` :
+                `${failed} project${failed !== 1 ? 's' : ''} failed to import`
+            }
                     </div>
                 </div>
             </div>
