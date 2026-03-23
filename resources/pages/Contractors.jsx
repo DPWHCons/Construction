@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { router } from '@inertiajs/react';
 import FeedbackAlert from '@/Components/FeedbackAlert';
 import { showSuccessToast, showErrorToast } from '@/Utils/alerts';
+import DPWHLoading from '@/Components/DPWHLoading';
 
 export default function ContractorsIndex() {
     const { contractors, filters } = usePage().props;
@@ -12,12 +13,18 @@ export default function ContractorsIndex() {
         show: false,
         contractor: null
     });
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSearch = (term) => {
         setSearchTerm(term);
+        setIsLoading(true);
         router.get(route('contractors.index'), {
             search: term || null,
-        }, { preserveState: true, replace: true });
+        }, { 
+            preserveState: true, 
+            replace: true,
+            onFinish: () => setIsLoading(false)
+        });
     };
 
     const handleArchive = (contractor) => {
@@ -31,15 +38,18 @@ export default function ContractorsIndex() {
         if (!archiveAlert.contractor) return;
         
         const contractor = archiveAlert.contractor;
+        setIsLoading(true);
         
         router.post(route('contractors.archive', contractor.name), {}, {
             onSuccess: () => {
                 showSuccessToast(`Contractor "${contractor.name}" removed successfully!`);
                 setArchiveAlert({ show: false, contractor: null });
+                setIsLoading(false);
             },
             onError: () => {
                 showErrorToast('Failed to remove contractor. Please try again.');
                 setArchiveAlert({ show: false, contractor: null });
+                setIsLoading(false);
             }
         });
     };
@@ -141,12 +151,29 @@ export default function ContractorsIndex() {
                                                     >
                                                         <button
                                                             type="submit"
-                                                            className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium shadow-sm"
+                                                            disabled={isLoading}
+                                                            className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-sm ${
+                                                                isLoading
+                                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                                    : 'bg-orange-500 text-white hover:bg-orange-600'
+                                                            }`}
                                                         >
-                                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                                            </svg>
-                                                            Remove
+                                                            {isLoading ? (
+                                                                <>
+                                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                    </svg>
+                                                                    Removing...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                                                    </svg>
+                                                                    Remove
+                                                                </>
+                                                            )}
                                                         </button>
                                                     </form>
                                                 </div>
@@ -174,6 +201,14 @@ export default function ContractorsIndex() {
                                             : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
                                     }`}
                                     preserveScroll
+                                    disabled={isLoading}
+                                    onClick={(e) => {
+                                        if (isLoading || !contractors.prev_page_url) {
+                                            e.preventDefault();
+                                            return;
+                                        }
+                                        setIsLoading(true);
+                                    }}
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -204,6 +239,14 @@ export default function ContractorsIndex() {
                                                         : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
                                                 }`}
                                                 preserveScroll
+                                                disabled={isLoading}
+                                                onClick={(e) => {
+                                                    if (isLoading || !link.url) {
+                                                        e.preventDefault();
+                                                        return;
+                                                    }
+                                                    setIsLoading(true);
+                                                }}
                                             >
                                                 {link.label}
                                             </Link>
@@ -220,6 +263,14 @@ export default function ContractorsIndex() {
                                             : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
                                     }`}
                                     preserveScroll
+                                    disabled={isLoading}
+                                    onClick={(e) => {
+                                        if (isLoading || !contractors.next_page_url) {
+                                            e.preventDefault();
+                                            return;
+                                        }
+                                        setIsLoading(true);
+                                    }}
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
@@ -261,6 +312,14 @@ export default function ContractorsIndex() {
                             cancelButton: 'bg-slate-100 text-slate-700 hover:bg-slate-200',
                         }}
                     />
+
+                    {/* Global Loading Indicator */}
+                    {isLoading && (
+                        <DPWHLoading
+                            message="Processing..."
+                            subMessage="Please wait while we process your request"
+                        />
+                    )}
                 </div>
             </div>
         </PageLayout>

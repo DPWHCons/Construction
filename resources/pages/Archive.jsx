@@ -4,6 +4,7 @@ import PageLayout from '../js/Layouts/PageLayout';
 import useAutoRefresh from '../js/Hooks/useAutoRefresh';
 import { router } from '@inertiajs/react';
 import { showRestoreConfirmation, showDeleteConfirmation, showSuccessToast, showErrorToast, showInfoToast } from '@/Utils/alerts';
+import DPWHLoading from '@/Components/DPWHLoading';
 
 export default function Archive({ archivedImages }) {
     const { archivedProjects, archivedCategories, archivedContractors } = usePage().props;
@@ -19,6 +20,7 @@ export default function Archive({ archivedImages }) {
     const [selectedImages, setSelectedImages] = useState(new Set());
     const [isModalSelectionMode, setIsModalSelectionMode] = useState(false);
     const [modalSelectedImages, setModalSelectedImages] = useState(new Set());
+    const [isLoading, setIsLoading] = useState(false);
 
     // Helper function to check if all images in a project are selected
     const areProjectImagesSelected = (groupKey, images) => {
@@ -101,6 +103,8 @@ export default function Archive({ archivedImages }) {
     const handleModalRestore = async () => {
         if (modalSelectedImages.size === 0) return;
         
+        setIsLoading(true);
+        
         try {
             // Extract image IDs from selected indices
             const allImages = getAllArchivedImages();
@@ -128,9 +132,11 @@ export default function Archive({ archivedImages }) {
                 window.location.reload();
             } else {
                 showErrorToast(result.message);
+                setIsLoading(false);
             }
         } catch (error) {
             showErrorToast('Failed to restore images. Please try again.');
+            setIsLoading(false);
         }
     };
 
@@ -140,6 +146,8 @@ export default function Archive({ archivedImages }) {
         const result = await showDeleteConfirmation(`${modalSelectedImages.size} selected archived images`, 'images');
         
         if (result.isConfirmed) {
+            setIsLoading(true);
+            
             try {
                 const allImages = getAllArchivedImages();
                 const imageIds = Array.from(modalSelectedImages).map(index => allImages[index]?.id).filter(id => id);
@@ -166,9 +174,11 @@ export default function Archive({ archivedImages }) {
                     window.location.reload();
                 } else {
                     showErrorToast(deleteResult.message);
+                    setIsLoading(false);
                 }
             } catch (error) {
                 showErrorToast('Failed to delete images. Please try again.');
+                setIsLoading(false);
             }
         }
     };
@@ -336,6 +346,8 @@ export default function Archive({ archivedImages }) {
 
     // Individual image restore function
     const handleRestoreImage = async (image) => {
+        setIsLoading(true);
+        
         try {
             const result = await showRestoreConfirmation(image.caption || 'Image');
             
@@ -348,17 +360,23 @@ export default function Archive({ archivedImages }) {
                     onError: (errors) => {
                         const errorMessage = errors?.message || errors?.error || 'Failed to restore image. Please try again.';
                         showErrorToast(errorMessage);
+                        setIsLoading(false);
                     },
                     preserveState: false,
                 });
+            } else {
+                setIsLoading(false);
             }
         } catch (error) {
             showErrorToast('An unexpected error occurred. Please try again.');
+            setIsLoading(false);
         }
     };
 
     // Individual image delete function
     const handleDeleteImage = async (image) => {
+        setIsLoading(true);
+        
         try {
             const result = await showDeleteConfirmation(image.caption || 'Image', 'image');
             
@@ -371,17 +389,23 @@ export default function Archive({ archivedImages }) {
                     onError: (errors) => {
                         const errorMessage = errors?.message || errors?.error || 'Failed to delete image. Please try again.';
                         showErrorToast(errorMessage);
+                        setIsLoading(false);
                     },
                     preserveState: false,
                 });
+            } else {
+                setIsLoading(false);
             }
         } catch (error) {
             showErrorToast('An unexpected error occurred. Please try again.');
+            setIsLoading(false);
         }
     };
 
     const handleRestore = async () => {
         if (selectedImages.size === 0) return;
+        
+        setIsLoading(true);
         
         try {
             // Extract image IDs from selected keys - the image ID is the last part after the last dash
@@ -394,6 +418,7 @@ export default function Archive({ archivedImages }) {
             // Check if we have valid IDs
             if (imageIds.some(id => isNaN(id))) {
                 showErrorToast('Invalid image selection. Please try again.');
+                setIsLoading(false);
                 return;
             }
             
@@ -420,6 +445,7 @@ export default function Archive({ archivedImages }) {
             
             if (!csrfToken) {
                 showErrorToast('Security token missing. Please refresh the page.');
+                setIsLoading(false);
                 return;
             }
             
@@ -441,6 +467,7 @@ export default function Archive({ archivedImages }) {
             if (!contentType || !contentType.includes('application/json')) {
                 const text = await response.text();
                 showErrorToast('Server error. Please try again.');
+                setIsLoading(false);
                 return;
             }
             
@@ -453,9 +480,11 @@ export default function Archive({ archivedImages }) {
                 window.location.reload();
             } else {
                 showErrorToast(result.message || 'Failed to restore images');
+                setIsLoading(false);
             }
         } catch (error) {
             showErrorToast('Failed to restore images. Please try again.');
+            setIsLoading(false);
         }
     };
 
@@ -465,6 +494,8 @@ export default function Archive({ archivedImages }) {
         const result = await showDeleteConfirmation(`${selectedImages.size} selected archived images`, 'images');
         
         if (result.isConfirmed) {
+            setIsLoading(true);
+            
             try {
                 // Extract image IDs from selected keys - the image ID is the last part after the last dash
                 const imageIds = Array.from(selectedImages).map(key => {
@@ -493,9 +524,11 @@ export default function Archive({ archivedImages }) {
                     window.location.reload();
                 } else {
                     showErrorToast(deleteResult.message);
+                    setIsLoading(false);
                 }
             } catch (error) {
                 showErrorToast('Failed to delete images. Please try again.');
+                setIsLoading(false);
             }
         }
     };
@@ -1826,6 +1859,14 @@ export default function Archive({ archivedImages }) {
                         />
                     </div>
                 </div>
+            )}
+            
+            {/* Global Loading Indicator */}
+            {isLoading && (
+                <DPWHLoading
+                    message="Processing..."
+                    subMessage="Please wait while we process your request"
+                />
             )}
         </PageLayout>
     );

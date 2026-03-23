@@ -5,6 +5,7 @@ import { router } from '@inertiajs/react';
 import { showSuccessToast, showErrorToast } from '@/Utils/alerts';
 import EditCategoryModal from '@/Components/EditCategoryModal';
 import FeedbackAlert from '@/Components/FeedbackAlert';
+import DPWHLoading from '@/Components/DPWHLoading';
 
 export default function Categories() {
     const { categories, totalProjects, selectedYear: initialYear } = usePage().props;
@@ -19,6 +20,7 @@ export default function Categories() {
         hasProjects: false,
         projectCount: 0
     });
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleArchive = (category) => {
         const hasProjects = category.projects_count > 0;
@@ -34,33 +36,46 @@ export default function Categories() {
         if (!archiveAlert.category) return;
         
         const category = archiveAlert.category;
+        setIsLoading(true);
         
         router.post(route('categories.archive', category.id), {}, {
             onSuccess: () => {
                 showSuccessToast(`Category "${category.name}" archived successfully!`);
                 setArchiveAlert({ show: false, category: null, hasProjects: false, projectCount: 0 });
+                setIsLoading(false);
             },
             onError: () => {
                 showErrorToast('Failed to archive category. Please try again.');
                 setArchiveAlert({ show: false, category: null, hasProjects: false, projectCount: 0 });
+                setIsLoading(false);
             }
         });
     };
 
     const handleSearch = (term) => {
         setSearchTerm(term);
+        setIsLoading(true);
         router.get(route('categories.index'), {
             search: term || null,
             year: selectedYear === 'all' ? null : selectedYear
-        }, { preserveState: true, replace: true });
+        }, { 
+            preserveState: true, 
+            replace: true,
+            onFinish: () => setIsLoading(false)
+        });
     };
 
     const handleYearChange = (year) => {
         setSelectedYear(year);
+        setIsLoading(true);
         router.get(route('categories.index'), {
             search: searchTerm || null,
             year: year === 'all' ? null : year
-        }, { preserveState: true, replace: true });
+        }, { 
+            preserveState: true, 
+            replace: true,
+            onFinish: () => setIsLoading(false)
+        });
     };
 
     // Search Input Component
@@ -104,7 +119,12 @@ export default function Categories() {
     const clearAllFilters = () => {
         setSearchTerm('');
         setSelectedYear('all');
-        router.get(route('categories.index'), {}, { preserveState: true, replace: true });
+        setIsLoading(true);
+        router.get(route('categories.index'), {}, { 
+            preserveState: true, 
+            replace: true,
+            onFinish: () => setIsLoading(false)
+        });
     };
 
     return (
@@ -162,9 +182,14 @@ export default function Categories() {
                             {/* Clear Button */}
                             <button
                                 onClick={clearAllFilters}
-                                className="px-4 py-2 bg-[#Eb3505] text-white rounded-lg hover:bg-[#c42a03] transition font-montserrat font-medium text-sm"
+                                disabled={isLoading}
+                                className={`px-4 py-2 rounded-lg transition font-montserrat font-medium text-sm ${
+                                    isLoading 
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                        : 'bg-[#Eb3505] text-white hover:bg-[#c42a03]'
+                                }`}
                             >
-                                Clear
+                                {isLoading ? 'Clearing...' : 'Clear'}
                             </button>
                         </div>
                     </div>
@@ -220,12 +245,29 @@ export default function Categories() {
                                                     >
                                                         <button
                                                             type="submit"
-                                                            className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium shadow-sm"
+                                                            disabled={isLoading}
+                                                            className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-sm ${
+                                                                isLoading
+                                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                                    : 'bg-orange-500 text-white hover:bg-orange-600'
+                                                            }`}
                                                         >
-                                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                                            </svg>
-                                                            Archive
+                                                            {isLoading ? (
+                                                                <>
+                                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                    </svg>
+                                                                    Archiving...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                                                    </svg>
+                                                                    Archive
+                                                                </>
+                                                            )}
                                                         </button>
                                                     </form>
 
@@ -254,6 +296,14 @@ export default function Categories() {
                                             : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
                                     }`}
                                     preserveScroll
+                                    disabled={isLoading}
+                                    onClick={(e) => {
+                                        if (isLoading || !categories.prev_page_url) {
+                                            e.preventDefault();
+                                            return;
+                                        }
+                                        setIsLoading(true);
+                                    }}
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -284,6 +334,14 @@ export default function Categories() {
                                                         : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
                                                 }`}
                                                 preserveScroll
+                                                disabled={isLoading}
+                                                onClick={(e) => {
+                                                    if (isLoading || !link.url) {
+                                                        e.preventDefault();
+                                                        return;
+                                                    }
+                                                    setIsLoading(true);
+                                                }}
                                             >
                                                 {link.label}
                                             </Link>
@@ -300,6 +358,14 @@ export default function Categories() {
                                             : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
                                     }`}
                                     preserveScroll
+                                    disabled={isLoading}
+                                    onClick={(e) => {
+                                        if (isLoading || !categories.next_page_url) {
+                                            e.preventDefault();
+                                            return;
+                                        }
+                                        setIsLoading(true);
+                                    }}
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
@@ -376,9 +442,18 @@ export default function Categories() {
                     }}
                     onUpdate={() => {
                         // Refresh the categories list
-                        router.reload({ only: ['categories'] });
+                        setIsLoading(true);
+                        router.reload({ only: ['categories'], onFinish: () => setIsLoading(false) });
                     }}
                 />
+
+                {/* Global Loading Indicator */}
+                {isLoading && (
+                    <DPWHLoading
+                        message="Processing..."
+                        subMessage="Please wait while we process your request"
+                    />
+                )}
             </div>
         </PageLayout>
     );
