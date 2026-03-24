@@ -113,28 +113,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                 {/* Overall Completion Indicator */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mt-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-bold text-slate-800">Overall Project Completion</h3>
-                        <span className="text-2xl font-bold text-slate-900">{Math.round((safeStats.completedProjects / safeStats.totalProjects) * 100) || 0}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-4 rounded-full overflow-hidden">
-                        <div
-                            className="bg-green-500 h-4 rounded-full transition-all duration-700 flex items-center justify-center shadow-lg"
-                            style={{ width: `${Math.max(5, (safeStats.completedProjects / safeStats.totalProjects) * 100)}%` }}
-                        >
-                            <span className="text-xs text-white font-semibold drop-shadow">
-                                {Math.round((safeStats.completedProjects / safeStats.totalProjects) * 100) || 0}%
-                            </span>
-                        </div>
-                    </div>
-                    <div className="flex justify-between text-xs text-slate-500 mt-2">
-                        <span>{safeStats.completedProjects} Completed</span>
-                        <span>{safeStats.totalProjects} Total Projects</span>
-                    </div>
-                </div>
-
+                 
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4" style={{marginTop: '.5rem'}}>
                     {/* Total Projects Card */}

@@ -171,22 +171,19 @@ class ExcelService
             $sheet->mergeCells('I' . $headerRow . ':L' . $headerRow);
             
             $sheet->setCellValue('M' . $headerRow, 'Target');
-            $sheet->mergeCells('M' . $headerRow . ':O' . $headerRow);
+            $sheet->mergeCells('M' . $headerRow . ':M' . ($headerRow + 1));
             
-            $sheet->setCellValue('P' . $headerRow, 'Start');
-            $sheet->mergeCells('P' . $headerRow . ':R' . $headerRow);
+            $sheet->setCellValue('N' . $headerRow, 'Start Date');
+            $sheet->mergeCells('N' . $headerRow . ':N' . ($headerRow + 1));
             
-            $sheet->setCellValue('S' . $headerRow, 'Completion');
-            $sheet->mergeCells('S' . $headerRow . ':U' . $headerRow);
+            $sheet->setCellValue('O' . $headerRow, 'Completion Date');
+            $sheet->mergeCells('O' . $headerRow . ':O' . ($headerRow + 1));
             
-            $sheet->setCellValue('V' . $headerRow, 'PHYSICAL ACCOMP. REPORTED as of ' . date('F Y'));
-            $sheet->mergeCells('V' . $headerRow . ':X' . $headerRow);
+            $sheet->setCellValue('P' . $headerRow, 'REMARKS');
+            $sheet->mergeCells('P' . $headerRow . ':P' . ($headerRow + 1));
             
-            $sheet->setCellValue('Y' . $headerRow, 'REMARKS');
-            $sheet->mergeCells('Y' . $headerRow . ':Y' . ($headerRow + 1));
-            
-            $sheet->setCellValue('Z' . $headerRow, 'Assigned Field Engineers');
-            $sheet->mergeCells('Z' . $headerRow . ':Z' . ($headerRow + 1));
+            $sheet->setCellValue('Q' . $headerRow, 'Assigned Field Engineers');
+            $sheet->mergeCells('Q' . $headerRow . ':Q' . ($headerRow + 1));
 
             // Second row - sub-headers
             $subHeaderRow = $headerRow + 1;
@@ -204,24 +201,13 @@ class ExcelService
             $sheet->setCellValue('L' . $subHeaderRow, 'd) Scope of Work - Unit of Measure');
             
             // Target sub-headers
-            $sheet->setCellValue('M' . $subHeaderRow, 'a) Planned');
-            $sheet->setCellValue('N' . $subHeaderRow, 'b) Revised');
-            $sheet->setCellValue('O' . $subHeaderRow, 'c) Actual');
+            $sheet->setCellValue('M' . $subHeaderRow, 'Actual');
             
             // Start sub-headers
-            $sheet->setCellValue('P' . $subHeaderRow, 'a) Planned');
-            $sheet->setCellValue('Q' . $subHeaderRow, 'b) Revised');
-            $sheet->setCellValue('R' . $subHeaderRow, 'c) Actual');
+            $sheet->setCellValue('N' . $subHeaderRow, 'Actual');
             
             // Completion sub-headers
-            $sheet->setCellValue('S' . $subHeaderRow, 'a) Planned');
-            $sheet->setCellValue('T' . $subHeaderRow, 'b) Revised');
-            $sheet->setCellValue('U' . $subHeaderRow, 'c) Actual');
-            
-            // Physical Accomplishment sub-headers
-            $sheet->setCellValue('V' . $subHeaderRow, 'a) Planned');
-            $sheet->setCellValue('W' . $subHeaderRow, 'b) Actual');
-            $sheet->setCellValue('X' . $subHeaderRow, 'c) Slippage');
+            $sheet->setCellValue('O' . $subHeaderRow, 'Actual');
 
             // Style both header rows
             $headerStyle = [
@@ -273,7 +259,7 @@ class ExcelService
                     }
                     
                     // Add category header row
-                    $sheet->mergeCells('A' . $dataRow . ':Z' . $dataRow);
+                    $sheet->mergeCells('A' . $dataRow . ':Q' . $dataRow);
                     $sheet->setCellValue('A' . $dataRow, strtoupper($projectCategory));
                     
                     $categoryStyle = [
@@ -297,7 +283,7 @@ class ExcelService
                             ],
                         ],
                     ];
-                    $sheet->getStyle('A' . $dataRow . ':Z' . $dataRow)->applyFromArray($categoryStyle);
+                    $sheet->getStyle('A' . $dataRow . ':Q' . $dataRow)->applyFromArray($categoryStyle);
                     $sheet->getRowDimension($dataRow)->setRowHeight(25);
                     
                     $currentCategory = $projectCategory;
@@ -320,22 +306,13 @@ class ExcelService
                     $project->scope->first() ? $project->scope->first()->project_engineer : '',
                     $project->scope->first() ? $project->scope->first()->contractor_name : '',
                     $project->scope->first() ? ($project->scope->first()->scope_of_work_main . ($project->scope->first()->unit_of_measure ? ' - ' . $project->scope->first()->unit_of_measure : '')) : '',
-                    $progress ? floatval($progress->target_planned ?? 0) : 0.00,
-                    $progress ? floatval($progress->target_revised ?? 0) : 0.00,
                     $progress ? floatval($progress->target_actual ?? 0) : 0.00,
-                    $progress ? (is_object($progress->target_start_planned) ? $progress->target_start_planned->format('d/m/Y') : ($progress->target_start_planned ?? '')) : '',
-                    $progress ? (is_object($progress->target_start_revised) ? $progress->target_start_revised->format('d/m/Y') : ($progress->target_start_revised ?? '')) : '',
                     $progress ? (is_object($progress->target_start_actual) ? $progress->target_start_actual->format('d/m/Y') : ($progress->target_start_actual ?? '')) : '',
-                    $progress ? (is_object($progress->target_completion_planned) ? $progress->target_completion_planned->format('d/m/Y') : ($progress->target_completion_planned ?? '')) : '',
-                    $progress ? (is_object($progress->target_completion_revised) ? $progress->target_completion_revised->format('d/m/Y') : ($progress->target_completion_revised ?? '')) : '',
                     $progress ? (is_object($progress->target_completion_actual) ? $progress->target_completion_actual->format('d/m/Y') : ($progress->target_completion_actual ?? '')) : '',
-                    $progress ? floatval($progress->completion_percentage_planned ?? 0) : 0.00,
-                    $progress ? floatval($progress->completion_percentage_actual ?? 0) : 0.00,
-                    $progress ? floatval($progress->slippage ?? 0) : 0.00,
                     $project->remarks->first() ? $project->remarks->first()->remarks : '',
                     $assignedEngineers,
                 ];
-
+                
                 $sheet->fromArray($data, null, 'A' . $dataRow);
                 
                 // Apply alternating row colors
@@ -358,21 +335,21 @@ class ExcelService
                         ],
                     ],
                 ];
-                $sheet->getStyle('A' . $dataRow . ':Z' . $dataRow)->applyFromArray($borderStyle);
+                $sheet->getStyle('A' . $dataRow . ':Q' . $dataRow)->applyFromArray($borderStyle);
                 
                 $dataRow++;
             }
 
             // Format numeric columns
-            $numericColumns = ['E', 'F', 'H', 'M', 'N', 'O'];
+            $numericColumns = ['E', 'F', 'H', 'M'];
             foreach ($numericColumns as $column) {
                 $sheet->getStyle($column . ($headerRow + 2) . ':' . $column . ($dataRow - 1))
                       ->getNumberFormat()
                       ->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
             }
             
-            // Format decimal columns (Physical Accomplishment)
-            $decimalColumns = ['V', 'W', 'X'];
+            // Format decimal columns
+            $decimalColumns = [];
             foreach ($decimalColumns as $column) {
                 $sheet->getStyle($column . ($headerRow + 2) . ':' . $column . ($dataRow - 1))
                       ->getNumberFormat()
@@ -380,17 +357,17 @@ class ExcelService
             }
 
             // Auto-size columns with minimum width
-            foreach (range('A', 'Z') as $columnID) {
+            foreach (range('A', 'S') as $columnID) {
                 $sheet->getColumnDimension($columnID)->setAutoSize(true);
                 // Set minimum width for better readability
-                if (in_array($columnID, ['B', 'L', 'Y', 'Z'])) {
+                if (in_array($columnID, ['B', 'L', 'R', 'S'])) {
                     $sheet->getColumnDimension($columnID)->setWidth(20);
                 }
             }
 
             // Add summary at the bottom
             $summaryRow = $dataRow + 2;
-            $sheet->mergeCells('A' . $summaryRow . ':Z' . $summaryRow);
+            $sheet->mergeCells('A' . $summaryRow . ':S' . $summaryRow);
             $sheet->setCellValue('A' . $summaryRow, 'Total Projects in ' . $year . ': ' . count($projects) . ' | Generated: ' . date('Y-m-d H:i:s'));
             
             $summaryStyle = [
@@ -413,7 +390,7 @@ class ExcelService
                     ],
                 ],
             ];
-            $sheet->getStyle('A' . $summaryRow . ':Z' . $summaryRow)->applyFromArray($summaryStyle);
+            $sheet->getStyle('A' . $summaryRow . ':S' . $summaryRow)->applyFromArray($summaryStyle);
             $sheet->getRowDimension($summaryRow)->setRowHeight(25);
 
             // Set page setup for printing
@@ -576,26 +553,16 @@ class ExcelService
                             // Check progress changes
                             $existingProgress = $existingProject->progress->first();
                             $hasProgressData = !empty($rowData['target_planned']) || !empty($rowData['target_revised']) || 
-                                              !empty($rowData['target_actual']) || !empty($rowData['target_start_planned']) || 
-                                              !empty($rowData['target_start_revised']) || !empty($rowData['target_start_actual']) ||
-                                              !empty($rowData['target_completion_planned']) || !empty($rowData['target_completion_revised']) || 
-                                              !empty($rowData['target_completion_actual']) || !empty($rowData['completion_percentage_planned']) || 
-                                              !empty($rowData['completion_percentage_actual']) || !empty($rowData['slippage']);
+                                              !empty($rowData['target_actual']) || !empty($rowData['target_start_actual']) || 
+                                              !empty($rowData['target_completion_actual']);
                             
                             if ($hasProgressData) {
                                 if (!$existingProgress || 
                                     $existingProgress->target_planned !== $rowData['target_planned'] ||
                                     $existingProgress->target_revised !== $rowData['target_revised'] ||
                                     $existingProgress->target_actual !== $rowData['target_actual'] ||
-                                    $existingProgress->target_start_planned !== $rowData['target_start_planned'] ||
-                                    $existingProgress->target_start_revised !== $rowData['target_start_revised'] ||
                                     $existingProgress->target_start_actual !== $rowData['target_start_actual'] ||
-                                    $existingProgress->target_completion_planned !== $rowData['target_completion_planned'] ||
-                                    $existingProgress->target_completion_revised !== $rowData['target_completion_revised'] ||
-                                    $existingProgress->target_completion_actual !== $rowData['target_completion_actual'] ||
-                                    $existingProgress->completion_percentage_planned !== $rowData['completion_percentage_planned'] ||
-                                    $existingProgress->completion_percentage_actual !== $rowData['completion_percentage_actual'] ||
-                                    $existingProgress->slippage !== $rowData['slippage']) {
+                                    $existingProgress->target_completion_actual !== $rowData['target_completion_actual']) {
                                     $hasChanges = true;
                                     $changeDetails[] = 'progress';
                                 }
@@ -697,20 +664,11 @@ class ExcelService
             'contractor_name' => trim($sheet->getCell('K' . $row)->getValue() ?? ''),
             'scope_of_work_main' => $scopeOfWorkParts['scope_of_work_main'],
             'unit_of_measure' => $scopeOfWorkParts['unit_of_measure'],
-            'target_planned' => self::parseNumeric($sheet->getCell('M' . $row)->getValue()),
-            'target_revised' => self::parseNumeric($sheet->getCell('N' . $row)->getValue()),
-            'target_actual' => self::parseNumeric($sheet->getCell('O' . $row)->getValue()),
-            'target_start_planned' => self::parseDate($sheet->getCell('P' . $row)->getValue()),
-            'target_start_revised' => self::parseDate($sheet->getCell('Q' . $row)->getValue()),
-            'target_start_actual' => self::parseDate($sheet->getCell('R' . $row)->getValue()),
-            'target_completion_planned' => self::parseDate($sheet->getCell('S' . $row)->getValue()),
-            'target_completion_revised' => self::parseDate($sheet->getCell('T' . $row)->getValue()),
-            'target_completion_actual' => self::parseDate($sheet->getCell('U' . $row)->getValue()),
-            'completion_percentage_planned' => self::parseNumeric($sheet->getCell('V' . $row)->getValue()),
-            'completion_percentage_actual' => self::parseNumeric($sheet->getCell('W' . $row)->getValue()),
-            'slippage' => self::parseNumeric($sheet->getCell('X' . $row)->getValue()),
-            'remarks' => trim($sheet->getCell('Y' . $row)->getValue() ?? ''),
-            'assigned_engineers' => trim($sheet->getCell('Z' . $row)->getValue() ?? ''),
+            'target_actual' => self::parseNumeric($sheet->getCell('M' . $row)->getValue()),
+            'target_start_actual' => self::parseDate($sheet->getCell('N' . $row)->getValue()),
+            'target_completion_actual' => self::parseDate($sheet->getCell('O' . $row)->getValue()),
+            'remarks' => trim($sheet->getCell('P' . $row)->getValue() ?? ''),
+            'assigned_engineers' => trim($sheet->getCell('Q' . $row)->getValue() ?? ''),
             'category_name' => null, // Will be set when processing category rows
         ];
     }
@@ -823,27 +781,14 @@ class ExcelService
         }
         
         // Create progress if any progress data exists
-        $hasProgressData = !empty($rowData['target_planned']) || !empty($rowData['target_revised']) || 
-                          !empty($rowData['target_actual']) || !empty($rowData['target_start_planned']) || 
-                          !empty($rowData['target_start_revised']) || !empty($rowData['target_start_actual']) ||
-                          !empty($rowData['target_completion_planned']) || !empty($rowData['target_completion_revised']) || 
-                          !empty($rowData['target_completion_actual']) || !empty($rowData['completion_percentage_planned']) || 
-                          !empty($rowData['completion_percentage_actual']) || !empty($rowData['slippage']);
+        $hasProgressData = !empty($rowData['target_actual']) || !empty($rowData['target_start_actual']) || 
+                          !empty($rowData['target_completion_actual']);
         
         if ($hasProgressData) {
             $project->progress()->create([
-                'target_planned' => $rowData['target_planned'],
-                'target_revised' => $rowData['target_revised'],
                 'target_actual' => $rowData['target_actual'],
-                'target_start_planned' => $rowData['target_start_planned'],
-                'target_start_revised' => $rowData['target_start_revised'],
                 'target_start_actual' => $rowData['target_start_actual'],
-                'target_completion_planned' => $rowData['target_completion_planned'],
-                'target_completion_revised' => $rowData['target_completion_revised'],
                 'target_completion_actual' => $rowData['target_completion_actual'],
-                'completion_percentage_planned' => $rowData['completion_percentage_planned'],
-                'completion_percentage_actual' => $rowData['completion_percentage_actual'],
-                'slippage' => $rowData['slippage'],
             ]);
         }
         
@@ -935,27 +880,14 @@ class ExcelService
         
         // Update or create progress
         $existingProgress = $existingProject->progress->first();
-        $hasProgressData = !empty($rowData['target_planned']) || !empty($rowData['target_revised']) || 
-                          !empty($rowData['target_actual']) || !empty($rowData['target_start_planned']) || 
-                          !empty($rowData['target_start_revised']) || !empty($rowData['target_start_actual']) ||
-                          !empty($rowData['target_completion_planned']) || !empty($rowData['target_completion_revised']) || 
-                          !empty($rowData['target_completion_actual']) || !empty($rowData['completion_percentage_planned']) || 
-                          !empty($rowData['completion_percentage_actual']) || !empty($rowData['slippage']);
+        $hasProgressData = !empty($rowData['target_actual']) || !empty($rowData['target_start_actual']) || 
+                          !empty($rowData['target_completion_actual']);
         
         if ($hasProgressData) {
             $progressData = [
-                'target_planned' => $rowData['target_planned'],
-                'target_revised' => $rowData['target_revised'],
                 'target_actual' => $rowData['target_actual'],
-                'target_start_planned' => $rowData['target_start_planned'],
-                'target_start_revised' => $rowData['target_start_revised'],
                 'target_start_actual' => $rowData['target_start_actual'],
-                'target_completion_planned' => $rowData['target_completion_planned'],
-                'target_completion_revised' => $rowData['target_completion_revised'],
                 'target_completion_actual' => $rowData['target_completion_actual'],
-                'completion_percentage_planned' => $rowData['completion_percentage_planned'],
-                'completion_percentage_actual' => $rowData['completion_percentage_actual'],
-                'slippage' => $rowData['slippage'],
             ];
             
             if ($existingProgress) {

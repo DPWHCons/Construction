@@ -99,7 +99,7 @@ class ProjectController extends Controller
             $projects = $query->orderBy('created_at', 'desc')->paginate(10);
         } else {
             // Show all years without pagination
-            $allProjects = $query->orderBy('project_year', 'desc')->orderBy('created_at', 'desc')->get();
+            $allProjects = $query->orderBy('project_year', 'desc')->get();
             
             // Create a simple paginator that shows all items on one page
             $projects = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -137,6 +137,74 @@ class ProjectController extends Controller
             'availableYears' => $availableYears,
             'selectedYear' => $request->year ?? 'all',
             'filters' => $request->only(['search', 'status', 'month', 'year', 'letter'])
+        ]);
+    }
+
+    /**
+     * Display public landing page with projects.
+     */
+    public function landing(Request $request)
+    {
+        $query = Project::with([
+            'scope',
+            'progress',
+            'remarks',
+            'assignedEngineers',
+            'images',
+            'category',
+        ])->where('is_archive', false);
+
+        // Search functionality for public view
+        if ($request->search) {
+            $searchTerm = $request->search;
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('title', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('contract_id', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('project_id', 'like', '%' . $searchTerm . '%')
+                  ->orWhereHas('category', function($subQuery) use ($searchTerm) {
+                      $subQuery->where('name', 'like', '%' . $searchTerm . '%');
+                  });
+            });
+        }
+
+        // Filter by year
+        if ($request->year && $request->year !== 'all') {
+            $query->where('project_year', $request->year);
+        }
+
+        // Get all projects ordered by date started (newest first)
+        $allProjects = $query->orderBy('date_started', 'desc')->get();
+        
+        // Create a simple paginator that shows all items on one page
+        $projects = new \Illuminate\Pagination\LengthAwarePaginator(
+            $allProjects,
+            $allProjects->count(),
+            $allProjects->count() > 0 ? $allProjects->count() : 1,
+            1,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+        
+        $projects->isYearPagination = false;
+        $projects->noPagination = true;
+        
+        // Get all available years for dropdown
+        $availableYears = \App\Models\Project::select('project_year')
+            ->whereNotNull('project_year')
+            ->where('project_year', '!=', 'Unknown Year')
+            ->distinct()
+            ->orderBy('project_year', 'desc')
+            ->pluck('project_year');
+
+        // Ensure relationships are properly serialized for Inertia
+        $projects->getCollection()->transform(function ($project) {
+            $project->assignedEngineers = $project->assignedEngineers->toArray();
+            return $project;
+        });
+
+        return Inertia::render('LandingPage', [
+            'projects' => $projects,
+            'availableYears' => $availableYears,
+            'filters' => $request->only(['search', 'year'])
         ]);
     }
 
@@ -207,21 +275,9 @@ class ProjectController extends Controller
             'scope_of_work_main' => 'nullable|string',
             
             // Progress & scope
-            'target_planned' => 'nullable|numeric|min:0',
-            'target_revised' => 'nullable|numeric|min:0',
-            'target_actual' => 'nullable|numeric|min:0',
-            'physical_accomplishment_planned' => 'nullable|numeric|min:0|max:100',
-            'physical_accomplishment_revised' => 'nullable|numeric|min:0|max:100',
-            'physical_accomplishment_actual' => 'nullable|numeric|min:0|max:100',
-            'target_start_planned' => 'nullable|date',
-            'target_start_revised' => 'nullable|date',
+            'target_actual' => 'nullable|integer|min:0',
             'target_start_actual' => 'nullable|date',
-            'target_completion_planned' => 'nullable|date',
-            'target_completion_revised' => 'nullable|date',
             'target_completion_actual' => 'nullable|date',
-            'completion_percentage_planned' => 'nullable|numeric|min:0|max:100',
-            'completion_percentage_actual' => 'nullable|numeric|min:0|max:100',
-            'slippage' => 'nullable|numeric',
             
             // Remarks
             'remarks' => 'nullable|string',
@@ -289,27 +345,11 @@ class ProjectController extends Controller
         }
 
         // Create project progress
-        if ($validated['target_planned'] || $validated['target_revised'] || $validated['target_actual'] ||
-            $validated['physical_accomplishment_planned'] || $validated['physical_accomplishment_revised'] || $validated['physical_accomplishment_actual'] ||
-            $validated['target_start_planned'] || $validated['target_start_revised'] || $validated['target_start_actual'] ||
-            $validated['target_completion_planned'] || $validated['target_completion_revised'] || $validated['target_completion_actual'] ||
-            $validated['completion_percentage_planned'] || $validated['completion_percentage_actual'] || $validated['slippage']) {
+        if ($validated['target_actual'] || $validated['target_start_actual'] || $validated['target_completion_actual']) {
             $project->progress()->create([
-                'target_planned' => $validated['target_planned'],
-                'target_revised' => $validated['target_revised'],
                 'target_actual' => $validated['target_actual'],
-                'physical_accomplishment_planned' => $validated['physical_accomplishment_planned'],
-                'physical_accomplishment_revised' => $validated['physical_accomplishment_revised'],
-                'physical_accomplishment_actual' => $validated['physical_accomplishment_actual'],
-                'target_start_planned' => $validated['target_start_planned'],
-                'target_start_revised' => $validated['target_start_revised'],
                 'target_start_actual' => $validated['target_start_actual'],
-                'target_completion_planned' => $validated['target_completion_planned'],
-                'target_completion_revised' => $validated['target_completion_revised'],
                 'target_completion_actual' => $validated['target_completion_actual'],
-                'completion_percentage_planned' => $validated['completion_percentage_planned'],
-                'completion_percentage_actual' => $validated['completion_percentage_actual'],
-                'slippage' => $validated['slippage'],
             ]);
         }
 
@@ -564,21 +604,9 @@ class ProjectController extends Controller
             'scope_of_work_main' => 'nullable|string',
             
             // Progress & scope
-            'target_planned' => 'nullable|numeric|min:0',
-            'target_revised' => 'nullable|numeric|min:0',
-            'target_actual' => 'nullable|numeric|min:0',
-            'physical_accomplishment_planned' => 'nullable|numeric|min:0|max:100',
-            'physical_accomplishment_revised' => 'nullable|numeric|min:0|max:100',
-            'physical_accomplishment_actual' => 'nullable|numeric|min:0|max:100',
-            'target_start_planned' => 'nullable|date',
-            'target_start_revised' => 'nullable|date',
+            'target_actual' => 'nullable|integer|min:0',
             'target_start_actual' => 'nullable|date',
-            'target_completion_planned' => 'nullable|date',
-            'target_completion_revised' => 'nullable|date',
             'target_completion_actual' => 'nullable|date',
-            'completion_percentage_planned' => 'nullable|numeric|min:0|max:100',
-            'completion_percentage_actual' => 'nullable|numeric|min:0|max:100',
-            'slippage' => 'nullable|numeric',
             
             // Remarks
             'remarks' => 'nullable|string',
@@ -681,38 +709,14 @@ class ProjectController extends Controller
 
         // Update or create progress
         if (
-            (isset($validated['target_planned']) && $validated['target_planned']) ||
-            (isset($validated['target_revised']) && $validated['target_revised']) ||
             (isset($validated['target_actual']) && $validated['target_actual']) ||
-            (isset($validated['physical_accomplishment_planned']) && $validated['physical_accomplishment_planned']) ||
-            (isset($validated['physical_accomplishment_revised']) && $validated['physical_accomplishment_revised']) ||
-            (isset($validated['physical_accomplishment_actual']) && $validated['physical_accomplishment_actual']) ||
-            (isset($validated['target_start_planned']) && $validated['target_start_planned']) ||
-            (isset($validated['target_start_revised']) && $validated['target_start_revised']) ||
             (isset($validated['target_start_actual']) && $validated['target_start_actual']) ||
-            (isset($validated['target_completion_planned']) && $validated['target_completion_planned']) ||
-            (isset($validated['target_completion_revised']) && $validated['target_completion_revised']) ||
-            (isset($validated['target_completion_actual']) && $validated['target_completion_actual']) ||
-            (isset($validated['completion_percentage_planned']) && $validated['completion_percentage_planned']) ||
-            (isset($validated['completion_percentage_actual']) && $validated['completion_percentage_actual']) ||
-            (isset($validated['slippage']) && $validated['slippage'])
+            (isset($validated['target_completion_actual']) && $validated['target_completion_actual'])
         ) {
             $progressData = [
-                'target_planned' => $validated['target_planned'] ?? null,
-                'target_revised' => $validated['target_revised'] ?? null,
                 'target_actual' => $validated['target_actual'] ?? null,
-                'physical_accomplishment_planned' => $validated['physical_accomplishment_planned'] ?? null,
-                'physical_accomplishment_revised' => $validated['physical_accomplishment_revised'] ?? null,
-                'physical_accomplishment_actual' => $validated['physical_accomplishment_actual'] ?? null,
-                'target_start_planned' => $validated['target_start_planned'] ?? null,
-                'target_start_revised' => $validated['target_start_revised'] ?? null,
                 'target_start_actual' => $validated['target_start_actual'] ?? null,
-                'target_completion_planned' => $validated['target_completion_planned'] ?? null,
-                'target_completion_revised' => $validated['target_completion_revised'] ?? null,
                 'target_completion_actual' => $validated['target_completion_actual'] ?? null,
-                'completion_percentage_planned' => $validated['completion_percentage_planned'] ?? null,
-                'completion_percentage_actual' => $validated['completion_percentage_actual'] ?? null,
-                'slippage' => $validated['slippage'] ?? null,
             ];
             
             $progress = $project->progress()->firstOrCreate(['project_id' => $project->id]);

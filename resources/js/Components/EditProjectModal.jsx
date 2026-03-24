@@ -54,21 +54,9 @@ export default function EditProjectModal({ show, onClose, project, categories = 
         scope_of_work_main: '',
         
         // Progress & scope
-        target_planned: '',
-        target_revised: '',
         target_actual: '',
-        physical_accomplishment_planned: '',
-        physical_accomplishment_revised: '',
-        physical_accomplishment_actual: '',
-        target_start_planned: '',
-        target_start_revised: '',
         target_start_actual: '',
-        target_completion_planned: '',
-        target_completion_revised: '',
         target_completion_actual: '',
-        completion_percentage_planned: '',
-        completion_percentage_actual: '',
-        slippage: '',
         
         // Remarks
         remarks: '',
@@ -152,21 +140,9 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                     scope_of_work_main: project.scope?.[0]?.scope_of_work_main || '',
                     
                     // Progress & scope
-                    target_planned: project.progress?.[0]?.target_planned || '',
-                    target_revised: project.progress?.[0]?.target_revised || '',
                     target_actual: project.progress?.[0]?.target_actual || '',
-                    physical_accomplishment_planned: project.progress?.[0]?.physical_accomplishment_planned || '',
-                    physical_accomplishment_revised: project.progress?.[0]?.physical_accomplishment_revised || '',
-                    physical_accomplishment_actual: project.progress?.[0]?.physical_accomplishment_actual || '',
-                    target_start_planned: formatDate(project.progress?.[0]?.target_start_planned) || '',
-                    target_start_revised: formatDate(project.progress?.[0]?.target_start_revised) || '',
                     target_start_actual: formatDate(project.progress?.[0]?.target_start_actual) || '',
-                    target_completion_planned: formatDate(project.progress?.[0]?.target_completion_planned) || '',
-                    target_completion_revised: formatDate(project.progress?.[0]?.target_completion_revised) || '',
                     target_completion_actual: formatDate(project.progress?.[0]?.target_completion_actual) || '',
-                    completion_percentage_planned: project.progress?.[0]?.completion_percentage_planned || '',
-                    completion_percentage_actual: project.progress?.[0]?.completion_percentage_actual || '',
-                    slippage: project.progress?.[0]?.slippage || '',
                     
                     // Remarks
                     remarks: project.remarks?.[0]?.remarks || '',
@@ -202,13 +178,6 @@ export default function EditProjectModal({ show, onClose, project, categories = 
         }
     }, [project]);
 
-    // Auto-calculate slippage when completion percentages change
-    useEffect(() => {
-        const planned = parseFloat(data.completion_percentage_planned) || 0;
-        const actual = parseFloat(data.completion_percentage_actual) || 0;
-        const slippage = actual - planned;
-        setData('slippage', slippage.toFixed(2));
-    }, [data.completion_percentage_planned, data.completion_percentage_actual]);
 
     // Control body scroll when modal is open
     useEffect(() => {
@@ -738,172 +707,39 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                             {/* Progress & Scope */}
                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                                 <h4 className="text-base font-semibold text-slate-800 font-montserrat mb-3">Progress & Scope</h4>
-                                <div className="space-y-4">
-                                    {/* Target (written depends in unit of measure) */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-xs font-medium text-slate-700 font-montserrat mb-2">Target (written depends in unit of measure)</label>
-                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Planned</label>
-                                                <input
-                                                    type="text"
-                                                    value={data.target_planned}
-                                                    onChange={(e) => setData('target_planned', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                    placeholder="Enter planned target"
-                                                />
-                                                {errors.target_planned && <p className="text-red-500 text-xs mt-1">{errors.target_planned}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Revised</label>
-                                                <input
-                                                    type="text"
-                                                    value={data.target_revised}
-                                                    onChange={(e) => setData('target_revised', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                    placeholder="Enter revised target"
-                                                />
-                                                {errors.target_revised && <p className="text-red-500 text-xs mt-1">{errors.target_revised}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Actual</label>
-                                                <input
-                                                    type="text"
-                                                    value={data.target_actual}
-                                                    onChange={(e) => setData('target_actual', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                    placeholder="Enter actual target"
-                                                />
-                                                {errors.target_actual && <p className="text-red-500 text-xs mt-1">{errors.target_actual}</p>}
-                                            </div>
-                                        </div>
+                                        <input
+                                            type="text"
+                                            value={data.target_actual}
+                                            onChange={(e) => setData('target_actual', e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
+                                            placeholder="Enter actual target"
+                                        />
+                                        {errors.target_actual && <p className="text-red-500 text-xs mt-1">{errors.target_actual}</p>}
                                     </div>
 
-                                    {/* Start Date (d,m,y) - Three fields */}
                                     <div>
                                         <label className="block text-xs font-medium text-slate-700 font-montserrat mb-2">Start Date (d,m,y)</label>
-                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Planned</label>
-                                                <input
-                                                    type="date"
-                                                    value={data.target_start_planned}
-                                                    onChange={(e) => setData('target_start_planned', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                />
-                                                {errors.target_start_planned && <p className="text-red-500 text-xs mt-1">{errors.target_start_planned}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Revised</label>
-                                                <input
-                                                    type="date"
-                                                    value={data.target_start_revised}
-                                                    onChange={(e) => setData('target_start_revised', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                />
-                                                {errors.target_start_revised && <p className="text-red-500 text-xs mt-1">{errors.target_start_revised}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Actual</label>
-                                                <input
-                                                    type="date"
-                                                    value={data.target_start_actual}
-                                                    onChange={(e) => setData('target_start_actual', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                />
-                                                {errors.target_start_actual && <p className="text-red-500 text-xs mt-1">{errors.target_start_actual}</p>}
-                                            </div>
-                                        </div>
+                                        <input
+                                            type="date"
+                                            value={data.target_start_actual}
+                                            onChange={(e) => setData('target_start_actual', e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
+                                        />
+                                        {errors.target_start_actual && <p className="text-red-500 text-xs mt-1">{errors.target_start_actual}</p>}
                                     </div>
 
-                                    {/* Completion Date (d,m,y) - Three fields */}
                                     <div>
                                         <label className="block text-xs font-medium text-slate-700 font-montserrat mb-2">Completion Date (d,m,y)</label>
-                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Planned</label>
-                                                <input
-                                                    type="date"
-                                                    value={data.target_completion_planned}
-                                                    onChange={(e) => setData('target_completion_planned', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                />
-                                                {errors.target_completion_planned && <p className="text-red-500 text-xs mt-1">{errors.target_completion_planned}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Revised</label>
-                                                <input
-                                                    type="date"
-                                                    value={data.target_completion_revised}
-                                                    onChange={(e) => setData('target_completion_revised', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                />
-                                                {errors.target_completion_revised && <p className="text-red-500 text-xs mt-1">{errors.target_completion_revised}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Actual</label>
-                                                <input
-                                                    type="date"
-                                                    value={data.target_completion_actual}
-                                                    onChange={(e) => setData('target_completion_actual', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                />
-                                                {errors.target_completion_actual && <p className="text-red-500 text-xs mt-1">{errors.target_completion_actual}</p>}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Completion Percentage (%) */}
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700 font-montserrat mb-2">Completion Percentage (%)</label>
-                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Planned</label>
-                                                <input
-                                                    type="number"
-                                                    value={data.completion_percentage_planned}
-                                                    onChange={(e) => setData('completion_percentage_planned', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                    placeholder="0.00"
-                                                    step="0.01"
-                                                    min="0"
-                                                    max="100"
-                                                />
-                                                {errors.completion_percentage_planned && <p className="text-red-500 text-xs mt-1">{errors.completion_percentage_planned}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Actual</label>
-                                                <input
-                                                    type="number"
-                                                    value={data.completion_percentage_actual}
-                                                    onChange={(e) => setData('completion_percentage_actual', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
-                                                    placeholder="0.00"
-                                                    step="0.01"
-                                                    min="0"
-                                                    max="100"
-                                                />
-                                                {errors.completion_percentage_actual && <p className="text-red-500 text-xs mt-1">{errors.completion_percentage_actual}</p>}
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-slate-500 font-montserrat mb-1">Slippage</label>
-                                                <input
-                                                    type="number"
-                                                    value={data.slippage}
-                                                    readOnly
-                                                    className={`w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat ${
-                                                        parseFloat(data.slippage) > 0 
-                                                            ? 'text-blue-600 font-semibold' 
-                                                            : parseFloat(data.slippage) < 0 
-                                                            ? 'text-red-600 font-semibold' 
-                                                            : 'text-slate-700'
-                                                    }`}
-                                                    placeholder="0.00"
-                                                    step="0.01"
-                                                />
-                                                {errors.slippage && <p className="text-red-500 text-xs mt-1">{errors.slippage}</p>}
-                                            </div>
-                                        </div>
+                                        <input
+                                            type="date"
+                                            value={data.target_completion_actual}
+                                            onChange={(e) => setData('target_completion_actual', e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent text-sm font-montserrat"
+                                        />
+                                        {errors.target_completion_actual && <p className="text-red-500 text-xs mt-1">{errors.target_completion_actual}</p>}
                                     </div>
                                 </div>
                             </div>

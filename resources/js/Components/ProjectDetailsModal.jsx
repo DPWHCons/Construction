@@ -1,16 +1,39 @@
 import React from 'react';
-import { router } from '@inertiajs/react';
 
 export default function ProjectDetailsModal({ show, project, onClose, onShowImages }) {
     if (!show || !project) return null;
 
+    // ✅ Normalize nested data (no more [0] everywhere)
+    const scope = project.scope?.[0] || {};
+    const progress = project.progress?.[0] || {};
+    const remarks = project.remarks?.[0] || {};
+
+    // ✅ Status functions
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200';
+            case 'ongoing': return 'bg-green-100 text-green-800 border-green-200';
+            case 'pending': return 'bg-red-100 text-red-800 border-red-200';
+            default: return 'bg-gray-100 text-gray-800 border-gray-200';
+        }
+    };
+
+    const getStatusDisplay = (status) => {
+        switch (status) {
+            case 'completed': return 'Completed';
+            case 'ongoing': return 'Ongoing';
+            case 'pending': return 'Pending';
+            default: return status || 'Unknown';
+        }
+    };
+
+    // ✅ Formatters
     const formatPeso = (amount) => {
         if (!amount || amount === 0) return '₱0.00';
         return new Intl.NumberFormat('en-PH', {
             style: 'currency',
             currency: 'PHP',
             minimumFractionDigits: 2,
-            maximumFractionDigits: 2
         }).format(amount);
     };
 
@@ -18,10 +41,7 @@ export default function ProjectDetailsModal({ show, project, onClose, onShowImag
         if (!dateString) return '-';
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return '-';
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return date.toLocaleDateString('en-GB'); // cleaner
     };
 
     return (
@@ -30,209 +50,190 @@ export default function ProjectDetailsModal({ show, project, onClose, onShowImag
             onClick={onClose}
         >
             <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto border border-gray-200 flex flex-col"
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header */}
-                <div className="flex items-center justify-between bg-[#Eb3505] text-white rounded-t-2xl px-6 py-4 sticky top-0 z-20">
-                    <h3 className="text-xl font-bold font-montserrat">Project Details - {project.project_year || '-'}</h3>
+                {/* 🔥 Header */}
+                <div className="flex items-center justify-between 
+                    bg-white/80 backdrop-blur border-b border-gray-200 
+                    text-gray-900 px-6 py-4 sticky top-0 z-20 border-b-2 border-gray-200 shadow-lg">
+                    
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-xl font-bold text-gray-900">
+                            Project Details — {project.project_year || '-'}
+                        </h3>
+                        {project.status && (
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(project.status)}`}>
+                                {getStatusDisplay(project.status)}
+                            </span>
+                        )}
+                    </div>
+
                     <div className="flex items-center gap-3">
                         {project.images?.length > 0 && (
                             <button
                                 onClick={onShowImages}
-                                className="px-4 py-2 bg-white/20 rounded-full text-sm font-montserrat hover:bg-white/30 transition"
+                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md"
                             >
-                                Project Gallery
+                                📸 Gallery
                             </button>
                         )}
+
                         <button
                             onClick={onClose}
-                            className="px-4 py-2 bg-white/20 rounded-full text-sm font-montserrat hover:bg-white/30 transition"
+                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md"
                         >
                             Close
                         </button>
                     </div>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 flex flex-col gap-6">
-                    {/* Project Title & Contract */}
-                    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
-                        <h4 className="text-2xl font-semibold font-montserrat text-gray-800">{project.title}</h4>   
+                {/* 📦 Content */}
+                <div className="p-6 space-y-6">
+
+                    {/* Title */}
+                    <div>
+                        <h4 className="text-2xl font-semibold text-gray-900">
+                            {project.title}
+                        </h4>
                     </div>
-
-                    {/* Information Sections */}
+                    
+                    {/* Grid Layout */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                       
 
-                        {/* Contract Information */}
-                        <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200">
-                            <h5 className="text-lg font-semibold mb-2">Contract Information</h5>
-                            <div className="flex flex-col gap-2 text-sm text-gray-700">
-                                <p><span className="font-semibold">Contract ID:</span> {project.contract_id || '-'}</p>
-                                <p><span className="font-semibold">Project Name:</span> {project.title}</p>
-                                <p><span className="font-semibold">Project ID:</span> {project.project_id || '-'}</p>
-                            </div>
-                        </div>
+                        {/* Contract */}
+                        <Section title="Contract Information">
+                            <InfoRow label="Contract ID" value={project.contract_id} />
+                            <InfoRow label="Project ID" value={project.project_id} />
+                        </Section>
 
-                        {/* Financial Info */}
-                        <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200">
-                            <h5 className="text-lg font-semibold mb-2">Financial Information</h5>
-                            <div className="flex flex-col gap-2 text-sm text-gray-700">
-                                <p><span className="font-semibold">Program Amount ('000):</span> {project.formatted_program_amount || formatPeso(project.program_amount || 0)}</p>
-                                <p><span className="font-semibold">Project Cost ('000):</span> {project.formatted_project_cost || formatPeso(project.project_cost || 0)}</p>
-                                <p><span className="font-semibold">Revised Project Cost ('000):</span> {project.formatted_revised_project_cost || formatPeso(project.revised_project_cost || 0)}</p>
-                            </div>
-                        </div>
+                        {/* Financial */}
+                        <Section title="Financial Information">
+                            <InfoRow label="Program Amount" value={project.formatted_program_amount || formatPeso(project.program_amount)} />
+                            <InfoRow label="Project Cost" value={project.formatted_project_cost || formatPeso(project.project_cost)} />
+                            <InfoRow label="Revised Cost" value={project.formatted_revised_project_cost || formatPeso(project.revised_project_cost)} />
+                        </Section>
 
-                        {/* Scope of Work */}
-                        <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 col-span-1 md:col-span-2">
-                            <h5 className="text-lg font-semibold mb-4">Scope of Work</h5>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Scope */}
+                        <Section title="Scope of Work" className="md:col-span-2">
+                            <div className="grid md:grid-cols-2 gap-6">
+
                                 <div className="space-y-3">
-                                     <div>
-                                        <span className="font-semibold text-gray-800">Duration, CD:</span>
-                                        <p className="text-sm text-gray-700">{project.scope?.[0]?.duration_cd || '-'}</p>
-                                    </div>
-                                    <div>
-                                        <span className="font-semibold text-gray-800">Project Engineer:</span>
-                                        <p className="text-sm text-gray-700">{project.scope?.[0]?.project_engineer || '-'}</p>
-                                    </div>
-                                     <div>
-                                        <span className="font-semibold text-gray-800">Contractor:</span>
-                                        <p className="text-sm text-gray-700">{project.scope?.[0]?.contractor_name || '-'}</p>
-                                    </div>
+                                    <InfoBlock label="Duration, CD" value={scope.duration_cd} />
+                                    <InfoBlock label="Project Engineer" value={scope.project_engineer} />
+                                    <InfoBlock label="Contractor" value={scope.contractor_name} />
                                 </div>
 
                                 <div className="space-y-3">
+                                    <InfoBlock label="Scope of Work - Unit of Measure" value={`${scope.scope_of_work_main} - ${scope.unit_of_measure}`} />
+
                                     <div>
-                                        <span className="font-semibold text-gray-800">Unit of Measure:</span>
-                                        <p className="text-sm text-gray-700">{project.scope?.[0]?.unit_of_measure || '-'}</p>
-                                    </div>
-                                    <div>
-                                        <span className="font-semibold text-gray-800">Scope of Work:</span>
-                                        <p className="text-sm text-gray-700">{project.scope?.[0]?.scope_of_work_main || '-'}</p>
-                                    </div>
-                                    <div>
-                                        <span className="font-semibold text-gray-800">Assigned Engineers:</span>
-                                        <div className="mt-1">
-                                            {project.assignedEngineers?.length
-                                                ? project.assignedEngineers.map((eng, i) => (
-                                                    <span key={i} className="inline-block text-indigo-800 px-2 py-1 rounded-full text-sm mr-1 mb-1">
-                                                        {eng.engineer_title && eng.engineer_name ? `${eng.engineer_title} – ${eng.engineer_name}` : "Invalid data"}
+                                        <span className="text-sm text-gray-500">Assigned Engineers</span>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {project.assignedEngineers?.length ? (
+                                                project.assignedEngineers.map((eng, i) => (
+                                                    <span
+                                                        key={i}
+                                                        className="inline-flex items-center bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-medium"
+                                                    >
+                                                        {eng.engineer_title && eng.engineer_name
+                                                            ? `${eng.engineer_title} – ${eng.engineer_name}`
+                                                            : 'Invalid data'}
                                                     </span>
                                                 ))
-                                                : <span className="italic text-gray-500 text-sm">No assigned engineers</span>}
+                                            ) : (
+                                                <span className="text-sm italic text-gray-400">
+                                                    No assigned engineers
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </Section>
 
-                        {/* Progress & Scope */}
-                        <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 col-span-1 md:col-span-2">
-                            <h5 className="text-lg font-semibold mb-4">Progress & Scope</h5>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                {/* Target Quantities */}
-                                <div className="space-y-3">
-                                    <h6 className="font-semibold text-gray-800 border-b border-gray-300 pb-1">Target ({project.scope?.[0]?.unit_of_measure || 'units'})</h6>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Planned:</span>
-                                            <span className="font-medium text-blue-600">{project.progress?.[0]?.target_planned || '-'}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Revised:</span>
-                                            <span className="font-medium text-orange-600">{project.progress?.[0]?.target_revised || '-'}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Actual:</span>
-                                            <span className="font-medium text-green-600">{project.progress?.[0]?.target_actual || '-'}</span>
-                                        </div>
-                                    </div>
-                                </div>
+                        {/* Progress */}
+                        <Section title="Progress & Timeline" className="md:col-span-2">
+                            <div className="grid md:grid-cols-3 gap-6">
 
-                                {/* Start Dates */}
-                                <div className="space-y-3">
-                                    <h6 className="font-semibold text-gray-800 border-b border-gray-300 pb-1">Start Date (d,m,y)</h6>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Planned:</span>
-                                            <span className="font-medium text-blue-600">{formatDate(project.progress?.[0]?.target_start_planned)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Revised:</span>
-                                            <span className="font-medium text-orange-600">{formatDate(project.progress?.[0]?.target_start_revised)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Actual:</span>
-                                            <span className="font-medium text-green-600">{formatDate(project.progress?.[0]?.target_start_actual)}</span>
-                                        </div>
-                                    </div>
-                                </div>
+                                <StatBlock
+                                    label={`Physical Length Measures (${scope.unit_of_measure || 'units'})`}
+                                    value={progress.target_actual}
+                                />
 
-                                {/* Completion Dates */}
-                                <div className="space-y-3">
-                                    <h6 className="font-semibold text-gray-800 border-b border-gray-300 pb-1">Completion Date (d,m,y)</h6>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Planned:</span>
-                                            <span className="font-medium text-blue-600">{formatDate(project.progress?.[0]?.target_completion_planned)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Revised:</span>
-                                            <span className="font-medium text-orange-600">{formatDate(project.progress?.[0]?.target_completion_revised)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Actual:</span>
-                                            <span className="font-medium text-green-600">{formatDate(project.progress?.[0]?.target_completion_actual)}</span>
-                                        </div>
-                                    </div>
-                                </div>
+                                <StatBlock
+                                    label="Start Date"
+                                    value={formatDate(progress.target_start_actual)}
+                                />
 
-                                {/* Completion Percentages */}
-                                <div className="space-y-3">
-                                    <h6 className="font-semibold text-gray-800 border-b border-gray-300 pb-1">Completion Percentage (%)</h6>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Planned:</span>
-                                            <span className="font-medium text-blue-600">{(project.progress?.[0]?.completion_percentage_planned || '-') + '%'}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Actual:</span>
-                                            <div className="text-right">
-                                                <span className="font-medium text-green-600">{(parseFloat(project.progress?.[0]?.completion_percentage_actual) || '-') + '%'}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Slippage: </span>
-                                            <span className={
-                                                (() => {
-                                                    const planned = parseFloat(project.progress?.[0]?.completion_percentage_planned) || 0;
-                                                    const actual = parseFloat(project.progress?.[0]?.completion_percentage_actual) || 0;
-                                                    const slippage = actual - planned;
-                                                    return slippage > 0 ? 'text-blue-600 font-semibold' : slippage < 0 ? 'text-red-600 font-semibold' : 'text-gray-700';
-                                                })()
-                                            }>
-                                                {(() => {
-                                                    const planned = parseFloat(project.progress?.[0]?.completion_percentage_planned) || 0;
-                                                    const actual = parseFloat(project.progress?.[0]?.completion_percentage_actual) || 0;
-                                                    return (actual - planned).toFixed(2) + '%';
-                                                })()}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
+                                <StatBlock
+                                    label="Completion Date"
+                                    value={formatDate(progress.target_completion_actual)}
+                                />
+
                             </div>
-                        </div>
+                        </Section>
 
                         {/* Remarks */}
-                        <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 col-span-1 md:col-span-2">
-                            <h5 className="text-lg font-semibold mb-2">Remarks</h5>
-                            <p className="text-gray-700 text-sm">{project.remarks?.[0]?.remarks || '-'}</p>
-                        </div>
+                        <Section title="Remarks" className="md:col-span-2">
+                            <p className="text-sm text-gray-700 leading-relaxed">
+                                {remarks.remarks || '-'}
+                            </p>
+                        </Section>
+
                     </div>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+/* 🧩 Reusable Components */
+
+function Section({ title, children, className = '' }) {
+    return (
+        <div className={`bg-white p-5 rounded-2xl border border-gray-100 shadow-sm ${className}`}>
+            <h5 className="text-sm font-semibold text-gray-800 mb-4">
+                {title}
+            </h5>
+            <div className="space-y-2">
+                {children}
+            </div>
+        </div>
+    );
+}
+
+function InfoRow({ label, value }) {
+    return (
+        <div className="flex justify-between text-sm">
+            <span className="text-gray-500">{label}</span>
+            <span className="font-medium text-gray-800">{value || '-'}</span>
+        </div>
+    );
+}
+
+function InfoBlock({ label, value }) {
+    return (
+        <div>
+            <span className="text-sm text-gray-500">{label}</span>
+            <p className="text-sm font-medium text-gray-800">
+                {value || '-'}
+            </p>
+        </div>
+    );
+}
+
+function StatBlock({ label, value }) {
+    return (
+        <div className="space-y-2">
+            <h6 className="text-sm font-medium text-gray-500">
+                {label}
+            </h6>
+            <div className="flex items-center gap-2">
+                <div className="h-2 w-2 bg-emerald-500 rounded-full"></div>
+                <span className="text-base font-semibold text-gray-900">
+                    {value || '-'}
+                </span>
             </div>
         </div>
     );
