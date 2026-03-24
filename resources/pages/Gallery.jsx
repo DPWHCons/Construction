@@ -252,6 +252,16 @@ export default function Gallery({ projects }) {
         setSelectedYear('all');
     };
 
+    const formatDocumentSize = (document) => {
+        if (!document?.document) return 'Unknown size';
+        return `${(document.document.length / 1024).toFixed(1)} KB`;
+    };
+
+    const formatDocumentDate = (dateValue) => {
+        if (!dateValue) return 'No date';
+        return new Date(dateValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
     // Group projects by year and category for transparency
     const groupedProjects = useMemo(() => {
         return projects.reduce((groups, project) => {
@@ -388,7 +398,7 @@ export default function Gallery({ projects }) {
                                                     if (projectImages.length === 0) return null;
 
                                                     return (
-                                                        <div key={project.id} className="bg-white border border-slate-200 overflow-hidden shadow-sm">
+                                                        <div key={project.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                                                             {/* Project Header */}
                                                             <div 
                                                                 onClick={() => toggleProjectExpansion(project.id)}
@@ -434,11 +444,12 @@ export default function Gallery({ projects }) {
                                                                 style={{ maxHeight: expandedProjects.has(project.id) ? '1000px' : '0px' }}
                                                             >
                                                                 <div className="p-4">
-                                                                    <div className="flex flex-wrap gap-3">
+                                                                    <div className="flex flex-wrap gap-3.5">
                                                                     {projectImages.map((document, documentIndex) => (
-                                                                        <div
+                                                                        <button
                                                                             key={document.id}
-                                                                            className="group relative w-32 h-20 overflow-hidden rounded cursor-pointer bg-white border border-slate-200 hover:shadow-md transition-all duration-300 hover:scale-105 flex-shrink-0"
+                                                                            type="button"
+                                                                            className="group relative w-36 h-24 overflow-hidden rounded-lg cursor-pointer bg-white border border-slate-200 hover:shadow-md transition-all duration-300 hover:scale-[1.02] flex-shrink-0 text-left"
                                                                             onClick={() => {
                                                                                 openImageModal({
                                                                                     ...document,
@@ -447,17 +458,17 @@ export default function Gallery({ projects }) {
                                                                                 });
                                                                             }}
                                                                         >
-                                                                            <div className="p-2 h-full flex flex-col justify-between">
+                                                                            <div className="p-2.5 h-full flex flex-col justify-between">
                                                                                 <div className="flex items-start space-x-2">
-                                                                                    <svg className="w-6 h-6 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                                                    </svg>
+                                                                                    <span className="inline-flex items-center justify-center h-5 px-1.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold tracking-wide flex-shrink-0">
+                                                                                        DOCS
+                                                                                    </span>
                                                                                     <div className="flex-1 min-w-0">
-                                                                                        <p className="text-xs font-medium text-slate-800 truncate">
+                                                                                        <p className="text-xs font-semibold text-slate-800 truncate">
                                                                                             {document.filename || 'Document'}
                                                                                         </p>
-                                                                                        <p className="text-xs text-slate-500">
-                                                                                            {document.document ? `${(document.document.length / 1024).toFixed(1)} KB` : 'Unknown size'}
+                                                                                        <p className="text-[11px] text-slate-500">
+                                                                                            {formatDocumentSize(document)}
                                                                                         </p>
                                                                                     </div>
                                                                                 </div>
@@ -465,7 +476,7 @@ export default function Gallery({ projects }) {
                                                                                     <a
                                                                                         href={document.url || '#'}
                                                                                         download={document.filename || `document_${document.id}.docx`}
-                                                                                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                                                        className="text-blue-600 hover:text-blue-800 transition-colors p-1 rounded hover:bg-blue-50"
                                                                                         onClick={(e) => e.stopPropagation()}
                                                                                         title="Download document"
                                                                                     >
@@ -477,21 +488,22 @@ export default function Gallery({ projects }) {
                                                                             </div>
                                                                             
                                                                             {/* Hover Overlay */}
-                                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center">
+                                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-all duration-300 flex items-center justify-center">
                                                                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-center">
                                                                                     <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                                                                                     </svg>
+                                                                                    <span className="text-[10px]">Preview</span>
                                                                                 </div>
                                                                             </div>
 
                                                                             {/* Date Badge */}
                                                                             <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                                                                 <div className="bg-black/60 backdrop-blur-sm text-white text-xs px-1 py-0.5 rounded">
-                                                                                    {new Date(document.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                                    {formatDocumentDate(document.created_at)}
                                                                                 </div>
                                                                             </div>
-                                                                        </div>
+                                                                        </button>
                                                                     ))}
                                                                 </div>
                                                                 </div>
@@ -546,7 +558,7 @@ export default function Gallery({ projects }) {
                                                     if (projectImages.length === 0) return null;
 
                                                     return (
-                                                        <div key={project.id} className="bg-white border border-slate-200 overflow-hidden shadow-sm">
+                                                        <div key={project.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                                                             {/* Project Header */}
                                                             <div 
                                                                 onClick={() => toggleProjectExpansion(project.id)}
@@ -585,11 +597,12 @@ export default function Gallery({ projects }) {
 
                                                             {/* Masonry Images */}
                                                             <div className="p-4">
-                                                                <div className="flex flex-wrap gap-3">
+                                                                <div className="flex flex-wrap gap-3.5">
                                                                     {projectImages.map((document, documentIndex) => (
-                                                                        <div
+                                                                        <button
                                                                             key={document.id}
-                                                                            className="group relative w-28 h-24 overflow-hidden rounded cursor-pointer bg-white border border-slate-200 hover:shadow-md transition-all duration-300 hover:scale-105 flex-shrink-0"
+                                                                            type="button"
+                                                                            className="group relative w-32 h-24 overflow-hidden rounded-lg cursor-pointer bg-white border border-slate-200 hover:shadow-md transition-all duration-300 hover:scale-[1.02] flex-shrink-0 text-left"
                                                                             onClick={() => openImageModal({
                                                                                 ...document,
                                                                                 projectTitle: project.title,
@@ -598,15 +611,15 @@ export default function Gallery({ projects }) {
                                                                         >
                                                                             <div className="p-2 h-full flex flex-col justify-between">
                                                                                 <div className="flex items-start space-x-1">
-                                                                                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                                                    </svg>
+                                                                                    <span className="inline-flex items-center justify-center h-4 px-1 rounded bg-blue-100 text-blue-700 text-[9px] font-bold tracking-wide flex-shrink-0">
+                                                                                        DOCS
+                                                                                    </span>
                                                                                     <div className="flex-1 min-w-0">
                                                                                         <p className="text-xs font-medium text-slate-800 truncate leading-tight">
                                                                                             {document.filename || 'Document'}
                                                                                         </p>
-                                                                                        <p className="text-xs text-slate-500">
-                                                                                            {document.document ? `${(document.document.length / 1024).toFixed(0)} KB` : 'Unknown'}
+                                                                                        <p className="text-[11px] text-slate-500">
+                                                                                            {formatDocumentSize(document)}
                                                                                         </p>
                                                                                     </div>
                                                                                 </div>
@@ -614,7 +627,7 @@ export default function Gallery({ projects }) {
                                                                                     <a
                                                                                         href={document.url || '#'}
                                                                                         download={document.filename || `document_${document.id}.docx`}
-                                                                                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                                                        className="text-blue-600 hover:text-blue-800 transition-colors p-1 rounded hover:bg-blue-50"
                                                                                         onClick={(e) => e.stopPropagation()}
                                                                                         title="Download document"
                                                                                     >
@@ -633,12 +646,12 @@ export default function Gallery({ projects }) {
                                                                                     )}
                                                                                     <div className="flex items-center gap-1">
                                                                                         <span className="text-xs text-white/60">
-                                                                                            {new Date(document.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                                            {formatDocumentDate(document.created_at)}
                                                                                         </span>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
-                                                                        </div>
+                                                                        </button>
                                                                     ))}
                                                                 </div>
                                                             </div>
