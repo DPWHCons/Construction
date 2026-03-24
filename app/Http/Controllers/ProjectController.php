@@ -294,7 +294,7 @@ class ProjectController extends Controller
             
             // Documents
             'images' => 'nullable|array|max:10',
-            'images.*' => 'file|mimes:doc,docx|max:10240', // 10MB max for Word documents
+            'images.*' => 'file|mimes:doc,docx|max:512000', // 500MB max for Word documents
         ]);
 
         // Handle category - flexible approach for user convenience
@@ -623,7 +623,7 @@ class ProjectController extends Controller
             
             // Documents
             'images' => 'nullable|array|max:10',
-            'images.*' => 'file|mimes:doc,docx|max:10240', // 10MB max for Word documents
+            'images.*' => 'file|mimes:doc,docx|max:512000', // 500MB max for Word documents
             'removed_images' => 'nullable|array'
         ]);
 

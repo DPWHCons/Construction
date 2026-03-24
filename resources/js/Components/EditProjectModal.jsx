@@ -211,7 +211,7 @@ export default function EditProjectModal({ show, onClose, project, categories = 
             // Create preview info for Word documents
             const previewInfo = {
                 name: file.name,
-                size: (file.size / 1024).toFixed(2) + ' KB',
+                size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
                 type: file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             };
             newPreviews.push(previewInfo);
@@ -861,7 +861,7 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                                                                 {document.filename || `Document ${index + 1}`}
                                                             </p>
                                                             <p className="text-xs text-slate-500">
-                                                                {document.document ? `${(document.document.length / 1024).toFixed(1)} KB` : 'Unknown size'}
+                                                                {document.document ? `${(document.document.length / (1024 * 1024)).toFixed(2)} MB` : 'Unknown size'}
                                                             </p>
                                                         </div>
                                                     </div>

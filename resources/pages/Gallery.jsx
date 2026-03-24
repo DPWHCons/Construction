@@ -254,7 +254,7 @@ export default function Gallery({ projects }) {
 
     const formatDocumentSize = (document) => {
         if (!document?.document) return 'Unknown size';
-        return `${(document.document.length / 1024).toFixed(1)} KB`;
+        return `${(document.document.length / (1024 * 1024)).toFixed(2)} MB`;
     };
 
     const formatDocumentDate = (dateValue) => {
@@ -732,7 +732,7 @@ export default function Gallery({ projects }) {
                                 <div>
                                     <h3 className="text-xl font-bold">{selectedDocument.filename || 'Document'}</h3>
                                     <div className="flex items-center space-x-4 text-sm text-slate-300">
-                                        <span>Size: {selectedDocument.document ? `${(selectedDocument.document.length / 1024).toFixed(1)} KB` : 'Unknown'}</span>
+                                        <span>Size: {selectedDocument.document ? `${(selectedDocument.document.length / (1024 * 1024)).toFixed(2)} MB` : 'Unknown'}</span>
                                         <span>Created: {new Date(selectedDocument.created_at).toLocaleDateString()}</span>
                                     </div>
                                 </div>
