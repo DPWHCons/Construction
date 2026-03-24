@@ -75,7 +75,7 @@ export default function ProjectDetailsModal({ show, project, onClose, onShowImag
                                 onClick={onShowImages}
                                 className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md"
                             >
-                                📸 Gallery
+                                Project Gallery
                             </button>
                         )}
 

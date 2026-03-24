@@ -4,9 +4,9 @@ import { Head, router } from '@inertiajs/react';
 
 export default function ProjectGalleryModal({ show, project, onClose, onBackToDetails }) {
     const [displayMode, setDisplayMode] = useState('grid'); // grid, list
-    const [selectedImages, setSelectedImages] = useState(new Set()); // Set of selected image indices
+    const [selectedDocuments, setSelectedDocuments] = useState(new Set()); // Set of selected document indices
     const [isSelectionMode, setIsSelectionMode] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null); // For popup display
+    const [selectedDocument, setSelectedDocument] = useState(null); // For popup display
     const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // For shift-click range selection
 
     if (!show || !project) return null;
@@ -23,40 +23,63 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
         </svg>
     );
 
-    const handleImageClick = (image) => {
+    const handleDocumentClick = (document) => {
         if (isSelectionMode) return; // Don't show popup when in selection mode
-        setSelectedImage(image);
+        
+        if (!document) return;
+        if (!document.url) return;
+
+        const previewUrl = `/document-preview?url=${encodeURIComponent(document.url)}&filename=${encodeURIComponent(document.filename || 'Document')}`;
+        window.open(previewUrl, '_blank', 'noopener,noreferrer');
     };
 
-    const closeImagePopup = () => {
-        setSelectedImage(null);
+    const closeDocumentPopup = () => {
+        setSelectedDocument(null);
     };
 
-    const navigateImage = (direction) => {
+    const getDocumentType = (filename) => {
+        if (!filename) return 'Unknown';
+        
+        const ext = filename.split('.').pop()?.toLowerCase();
+        const types = {
+            'pdf': 'PDF Document',
+            'doc': 'Word Document',
+            'docx': 'Word Document',
+            'xls': 'Excel Spreadsheet',
+            'xlsx': 'Excel Spreadsheet',
+            'ppt': 'PowerPoint Presentation',
+            'pptx': 'PowerPoint Presentation',
+            'txt': 'Text File'
+        };
+        
+        return types[ext] || 'Document';
+    };
+
+    const navigateDocument = (direction) => {
         if (!project.images || project.images.length === 0) return;
         
-        // Find current image index with multiple fallback methods
+        // Find current document index with multiple fallback methods
         let currentIndex = -1;
         
         // Method 1: Direct object comparison
-        currentIndex = project.images.findIndex(img => img === selectedImage);
+        currentIndex = project.images.findIndex(doc => doc === selectedDocument);
         
-        // Method 2: Compare by image_path
-        if (currentIndex === -1 && selectedImage?.image_path) {
-            currentIndex = project.images.findIndex(img => img.image_path === selectedImage.image_path);
+        // Method 2: Compare by document path
+        if (currentIndex === -1 && selectedDocument?.document) {
+            currentIndex = project.images.findIndex(doc => doc.document === selectedDocument.document);
         }
         
         // Method 3: Compare by url
-        if (currentIndex === -1 && selectedImage?.url) {
-            currentIndex = project.images.findIndex(img => img.url === selectedImage.url);
+        if (currentIndex === -1 && selectedDocument?.url) {
+            currentIndex = project.images.findIndex(doc => doc.url === selectedDocument.url);
         }
         
         // Method 4: Compare by id if available
-        if (currentIndex === -1 && selectedImage?.id) {
-            currentIndex = project.images.findIndex(img => img.id === selectedImage.id);
+        if (currentIndex === -1 && selectedDocument?.id) {
+            currentIndex = project.images.findIndex(doc => doc.id === selectedDocument.id);
         }
         
-        // If still not found, use first image
+        // If still not found, use first document
         if (currentIndex === -1) {
             currentIndex = 0;
         }
@@ -67,11 +90,11 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
         if (newIndex < 0) newIndex = project.images.length - 1;
         if (newIndex >= project.images.length) newIndex = 0;
         
-        setSelectedImage(project.images[newIndex]);
+        setSelectedDocument(project.images[newIndex]);
     };
 
-    const handleImageSelect = (index, isShiftClick = false) => {
-        const newSelected = new Set(selectedImages);
+    const handleDocumentSelect = (index, isShiftClick = false) => {
+        const newSelected = new Set(selectedDocuments);
         
         if (isShiftClick && lastSelectedIndex !== null) {
             // Select range between lastSelectedIndex and current index
@@ -81,7 +104,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                 newSelected.add(i);
             }
         } else {
-            // Toggle selection for single image
+            // Toggle selection for single document
             if (newSelected.has(index)) {
                 newSelected.delete(index);
             } else {
@@ -89,54 +112,60 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
             }
         }
         
-        setSelectedImages(newSelected);
+        setSelectedDocuments(newSelected);
         setLastSelectedIndex(index);
     };
 
     const handleSelectAll = () => {
-        if (selectedImages.size === project.images?.length) {
-            setSelectedImages(new Set()); // Deselect all
+        if (selectedDocuments.size === project.images?.length) {
+            setSelectedDocuments(new Set()); // Deselect all
         } else {
-            setSelectedImages(new Set(project.images?.map((_, index) => index))); // Select all
+            setSelectedDocuments(new Set(project.images?.map((_, index) => index))); // Select all
         }
     };
 
-    const handleDeleteImages = async () => {
-        if (selectedImages.size === 0) return;
+    const handleDeleteDocuments = async () => {
+        if (selectedDocuments.size === 0) return;
         
-        // Get selected image IDs
-        const imageIds = Array.from(selectedImages).map(index => project.images[index]?.id).filter(id => id);
+        // Get selected document IDs
+        const documentIds = Array.from(selectedDocuments).map(index => project.images[index]?.id).filter(id => id);
         
-        if (imageIds.length === 0) {
-            showErrorToast('No valid images selected for archiving');
+        if (documentIds.length === 0) {
+            showErrorToast('No valid documents selected');
+            return;
+        }
+        
+        if (!confirm(`Are you sure you want to archive ${documentIds.length} document(s)?`)) {
             return;
         }
         
         try {
-            // Use Inertia router to make the request
-            router.post('/api/archive-images', {
-                imageIds: imageIds
-            }, {
-                onSuccess: (page) => {
-                    const result = page.props.flash?.success || { archivedCount: imageIds.length };
-                    showSuccessToast(`Moved ${result.archivedCount || imageIds.length} image(s) to archive`);
-                    setSelectedImages(new Set());
-                    setIsSelectionMode(false);
+            const response = await fetch('/project-images/archive', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
                 },
-                onError: (errors) => {
-                    showErrorToast('Failed to archive images: ' + (errors.message || 'Unknown error'));
-                },
-                preserveScroll: true,
-                preserveState: false
+                body: JSON.stringify({ image_ids: documentIds })
             });
+            
+            if (response.ok) {
+                showSuccessToast(`${documentIds.length} document(s) archived successfully`);
+                setSelectedDocuments(new Set());
+                setIsSelectionMode(false);
+                router.reload();
+            } else {
+                showErrorToast('Failed to archive documents');
+            }
         } catch (error) {
-            showErrorToast('Error occurred while archiving images: ' + error.message);
+            console.error('Error archiving documents:', error);
+            showErrorToast('Error occurred while archiving documents');
         }
     };
 
     const toggleSelectionMode = () => {
         setIsSelectionMode(!isSelectionMode);
-        setSelectedImages(new Set()); // Clear selections when toggling
+        setSelectedDocuments(new Set()); // Clear selections when toggling
     };
 
     return (
@@ -146,24 +175,29 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
             onClick={onClose}
         >
             <div
-                className="bg-white rounded-xl shadow-2xl w-[1800px] h-[600px] overflow-hidden border border-slate-200 transition-all duration-300 flex flex-col"
+                className="bg-white rounded-xl shadow-2xl w-[1200px] h-[600px] overflow-hidden border border-slate-200 transition-all duration-300 flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between bg-[#Eb3505] text-white rounded-t-2xl px-6 py-4 sticky top-0 z-20">
-                    <div className="flex-1 flex items-center">
-                        <h3 className="text-lg font-semibold font-montserrat">Project Gallery</h3>
+                {/* 🔥 Header */}
+                <div className="flex items-center justify-between 
+                    bg-white/80 backdrop-blur border-b border-gray-200 
+                    text-gray-900 px-6 py-4 sticky top-0 z-20 border-b-2 border-gray-200 shadow-lg">
+                    
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-xl font-bold text-gray-900">
+                            Project Gallery — {project.project_year || '-'}
+                        </h3>
                     </div>
                     <div className="flex items-center gap-3">
                         <button
                             onClick={onBackToDetails}
-                            className="px-4 py-2 bg-white/20 rounded-full text-sm font-montserrat hover:bg-white/30 transition"
+                            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md"
                         >
                             Project Details
                         </button>
                         <button
                             onClick={onClose}
-                            className="px-4 py-2 bg-white/20 rounded-full text-sm font-montserrat hover:bg-white/30 transition"
+                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md"
                         >
                             Close
                         </button>
@@ -212,7 +246,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                                         onClick={handleSelectAll}
                                         className="px-3 py-1 bg-[#010066] text-white rounded-full text-xs font-montserrat hover:bg-[#010066]/80 transition-all"
                                     >
-                                        {selectedImages.size === project.images?.length ? 'Deselect All' : 'Select All'}
+                                        {selectedDocuments.size === project.images?.length ? 'Deselect All' : 'Select All'}
                                     </button>
                                 )}
                                 <button
@@ -223,52 +257,84 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                                             : 'bg-red-500 text-white hover:bg-red-600'
                                     }`}
                                 >
-                                    {isSelectionMode ? 'Cancel Selection' : 'Delete Images'}
+                                    {isSelectionMode ? 'Cancel Selection' : 'Delete Documents'}
                                 </button>
-                                {isSelectionMode && selectedImages.size > 0 && (
+                                {isSelectionMode && selectedDocuments.size > 0 && (
                                     <button
-                                        onClick={handleDeleteImages}
+                                        onClick={handleDeleteDocuments}
                                         className="px-3 py-1 bg-red-600 text-white rounded-full text-xs font-montserrat hover:bg-red-700 transition-all"
                                     >
-                                        Archived Images ({selectedImages.size})
+                                        Archived Documents ({selectedDocuments.size})
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        {/* Gallery Images */}
+                        {/* Gallery Documents */}
                         <div className="p-4">
                             {project.images && project.images.length > 0 ? (
                                 <div className={`grid gap-4 ${
                                     displayMode === 'grid' ? 'grid-cols-6' : 'grid-cols-1'
                                 }`}>
-                                    {project.images.map((image, index) => (
+                                    {project.images.map((document, index) => (
                                         <div
                                             key={index}
                                             className={`relative group cursor-pointer ${
                                                 displayMode === 'grid' ? 'aspect-square' : 'h-32'
-                                            }`}
+                                            } ${selectedDocuments.has(index) ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-400 hover:shadow-lg'
+                                            } rounded-lg border-2 border-slate-200 overflow-hidden transition-all duration-200`}
                                             onClick={(e) => {
-                                        if (isSelectionMode) {
-                                            handleImageSelect(index, e.shiftKey);
-                                        } else {
-                                            handleImageClick(image);
-                                        }
-                                    }}
+                                                if (isSelectionMode) {
+                                                    handleDocumentSelect(index, e.shiftKey);
+                                                } else {
+                                                    handleDocumentClick(document);
+                                                }
+                                            }}
                                         >
-                                            <img
-                                                src={image.url || (image.image_path ? `/storage/${image.image_path}` : '')}
-                                                alt={image.title || `Image ${index + 1}`}
-                                                className={`w-full h-full object-cover rounded-lg transition-all ${
-                                                    isSelectionMode ? selectedImages.has(index) ? 'ring-4 ring-red-500' : 'ring-2 ring-transparent hover:ring-blue-300' : ''
-                                                }`}
-                                            />
+                                            {/* Document Content */}
+                                            <div className="w-full h-full bg-gradient-to-br from-slate-50 to-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+                                                {/* Document Type Badge */}
+                                                <div className="absolute top-2 right-2">
+                                                    <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full">
+                                                        DOCS
+                                                    </span>
+                                                </div>
+                                                
+                                                {/* Document Icon */}
+                                                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg mb-3">
+                                                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.707.293H19a2 2 0 012 2v11a2 2 0 01-2 2H7a2 2 0 01-2-2V9z" />
+                                                    </svg>
+                                                </div>
+                                                
+                                                {/* Document Info */}
+                                                <div className="text-center space-y-2">
+                                                    <p className="text-xs font-semibold text-gray-800 truncate max-w-full px-2">
+                                                        {document.filename || 'Document'}
+                                                    </p>
+                                                    <p className="text-[11px] text-gray-500">
+                                                        {document.filename ? getDocumentType(document.filename) : 'Unknown Type'}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Hover Overlay */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/40 to-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
+                                                <div className="text-white text-center">
+                                                    <svg className="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                    </svg>
+                                                    <span className="text-xs font-medium">Preview Document</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Selection Checkbox */}
                                             {isSelectionMode && (
                                                 <div className="absolute top-2 left-2">
                                                     <input
                                                         type="checkbox"
-                                                        checked={selectedImages.has(index)}
-                                                        onChange={(e) => handleImageSelect(index, e.shiftKey)}
+                                                        checked={selectedDocuments.has(index)}
+                                                        onChange={(e) => handleDocumentSelect(index, e.shiftKey)}
                                                         className="w-5 h-5 text-red-600 rounded focus:ring-red-500"
                                                         onClick={(e) => e.stopPropagation()}
                                                     />
@@ -279,7 +345,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                                 </div>
                             ) : (
                                 <div className="text-center py-8 text-gray-500">
-                                    No images available for this project
+                                    No documents available for this project
                                 </div>
                             )}
                         </div>
@@ -288,19 +354,19 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
             </div>
         </div>
 
-        {/* Image Popup */}
-        {selectedImage && (
+        {/* Document Popup */}
+        {selectedDocument && (
             <div
                 className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                onClick={closeImagePopup}
+                onClick={closeDocumentPopup}
             >
                 {/* Previous Button */}
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        navigateImage(-1);
+                        navigateDocument(-1);
                     }}
-                    className="absolute left-8 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-all z-10"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-3 transition-all duration-200"
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -368,17 +434,38 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                                 </span>
                             </div>
                         </div>
-                        {selectedImage.caption && (
-                            <p className="mt-2 text-sm text-gray-200 italic">{selectedImage.caption}</p>
+                        {selectedDocument.caption && (
+                            <p className="mt-2 text-sm text-gray-200 italic">{selectedDocument.caption}</p>
                         )}
                     </div>
                     
-                    {/* Image */}
-                    <img
-                        src={selectedImage.url || (selectedImage.image_path ? `/storage/${selectedImage.image_path}` : '')}
-                        alt={selectedImage.title || 'Project image'}
-                        className="w-full h-full object-contain rounded-lg mt-20"
-                    />
+                    {/* Document Preview */}
+                    <div className="flex-1 bg-gray-100 rounded-lg p-4 flex items-center justify-center">
+                        {selectedDocument.url ? (
+                            <iframe
+                                src={selectedDocument.url}
+                                className="w-full h-full rounded-lg border-0"
+                                title={selectedDocument.filename || 'Document'}
+                            />
+                        ) : (
+                            <div className="text-center text-gray-500">
+                                <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.707.293H19a2 2 0 012 2v11a2 2 0 01-2 2H7a2 2 0 01-2-2V9z" />
+                                </svg>
+                                <p>No preview available</p>
+                                <a
+                                    href={selectedDocument.url || '#'}
+                                    download={selectedDocument.filename || 'document.docx'}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mt-4"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    Download Document
+                                </a>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         )}

@@ -18,9 +18,13 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): Response
     {
+        // Check if user is coming from landing page
+        $fromLanding = request()->has('from_landing');
+        
         return Inertia::render('Auth/Login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => session('status'),
+            'fromLanding' => $fromLanding,
         ]);
     }
 
@@ -47,6 +51,7 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        // Redirect to landing page with logout parameter
+        return redirect('/landing?logout=true');
     }
 }

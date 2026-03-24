@@ -81,18 +81,14 @@ export default function Login({ status, canResetPassword }) {
                 // Clear previous feedback
                 setFieldFeedback({ username: '', password: '' });
 
-                // Check for specific errors
-                if (errors.username) {
-                    setFieldFeedback(prev => ({
-                        ...prev,
-                        username: 'Invalid username'
-                    }));
-                }
-                if (errors.password) {
-                    setFieldFeedback(prev => ({
-                        ...prev,
-                        password: 'Invalid password'
-                    }));
+                // Check if user came from landing page and redirect back
+                const urlParams = new URLSearchParams(window.location.search);
+                const fromLanding = urlParams.get('from_landing');
+                
+                if (fromLanding === 'true') {
+                    window.location.href = 'http://127.0.0.1:8000/landing';
+                } else {
+                    window.location.href = route('dashboard');
                 }
             },
         });
