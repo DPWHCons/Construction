@@ -6,7 +6,7 @@ export default function DocumentPreview({ url, filename }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [useIframeFallback, setUseIframeFallback] = useState(false);
-    const [zoom, setZoom] = useState(1);
+    const [zoom, setZoom] = useState(1.1);
     const containerRef = useRef(null);
 
     const safeUrl = useMemo(() => url || '', [url]);
@@ -43,6 +43,8 @@ export default function DocumentPreview({ url, filename }) {
                     renderHeaders: true,
                     renderFooters: true,
                     renderFootnotes: true,
+                    // Some project docs place text close to page edge; ignore fixed width to prevent clipping.
+                    ignoreWidth: true,
                     useBase64URL: true,
                 });
 
@@ -63,33 +65,46 @@ export default function DocumentPreview({ url, filename }) {
     return (
         <>
             <Head title={`Preview - ${safeFilename}`} />
-            <div className="min-h-screen bg-slate-900 text-white">
-                <div className="sticky top-0 z-20 bg-slate-800/95 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
-                    <div className="min-w-0">
-                        <p className="text-sm text-slate-300">Document Preview</p>
-                        <h1 className="text-sm font-semibold truncate">{safeFilename}</h1>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center bg-white/10 rounded-lg p-1">
+            <div className="min-h-screen bg-blue-900 text-white">
+                <div className="sticky top-0 z-20 bg-white border-b border-slate-200">
+                    <div className="px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-md bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 text-xs font-bold">
+                                DOC
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[11px] uppercase tracking-wide text-slate-500">Document Preview</p>
+                                <h1 className="text-sm font-semibold truncate text-slate-900">{safeFilename}</h1>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <div className="hidden sm:flex items-center text-[11px] text-slate-600 bg-slate-100 border border-slate-200 rounded-md px-2 py-1">
+                                Zoom
+                            </div>
+                            <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200 text-slate-800">
                             <button
                                 type="button"
-                                onClick={() => setZoom((z) => Math.max(0.6, Number((z - 0.1).toFixed(1))))}
-                                className="px-2 py-1 text-sm hover:bg-white/20 rounded"
+                                onClick={() => setZoom((z) => Math.max(0.7, Number((z - 0.1).toFixed(1))))}
+                                className="px-2 py-1 text-sm hover:bg-white rounded transition-colors"
+                                title="Zoom out"
                             >
                                 -
                             </button>
-                            <span className="px-2 text-xs min-w-[52px] text-center">{Math.round(zoom * 100)}%</span>
+                            <span className="px-2 text-xs min-w-[56px] text-center font-medium text-slate-700">{Math.round(zoom * 100)}%</span>
                             <button
                                 type="button"
-                                onClick={() => setZoom((z) => Math.min(2, Number((z + 0.1).toFixed(1))))}
-                                className="px-2 py-1 text-sm hover:bg-white/20 rounded"
+                                onClick={() => setZoom((z) => Math.min(2.4, Number((z + 0.1).toFixed(1))))}
+                                className="px-2 py-1 text-sm hover:bg-white rounded transition-colors"
+                                title="Zoom in"
                             >
                                 +
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setZoom(1)}
-                                className="ml-1 px-2 py-1 text-xs hover:bg-white/20 rounded"
+                                className="ml-1 px-2 py-1 text-xs hover:bg-white rounded transition-colors text-slate-700"
+                                title="Reset zoom"
                             >
                                 Reset
                             </button>
@@ -97,10 +112,11 @@ export default function DocumentPreview({ url, filename }) {
                         <a
                             href={safeUrl || '#'}
                             download={safeFilename}
-                            className="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm font-medium"
+                            className="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                         >
                             Download
                         </a>
+                    </div>
                     </div>
                 </div>
 
@@ -112,14 +128,14 @@ export default function DocumentPreview({ url, filename }) {
                     ) : null}
 
                     {!useIframeFallback ? (
-                        <div className="mx-auto" style={{ zoom }}>
+                        <div className="mx-auto w-fit min-w-full" style={{ zoom }}>
                             <div ref={containerRef} />
                         </div>
                     ) : (
                         <div
                             className="mx-auto bg-white shadow-xl border border-slate-300"
                             style={{
-                                width: `${Math.round(794 * zoom)}px`,
+                                width: `${Math.round(980 * zoom)}px`,
                                 minHeight: `${Math.round(1123 * zoom)}px`,
                             }}
                         >
