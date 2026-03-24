@@ -14,6 +14,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+Route::get('/landing', [ProjectController::class, 'landing'])->name('landing');
+
 Route::get('/', function () {
     return redirect()->route('login');
 });

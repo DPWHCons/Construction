@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('projects', function (Blueprint $table) {
-            $table->dropColumn('date_taken');
+        Schema::table('project_progress', function (Blueprint $table) {
+            $table->integer('target_actual')->nullable()->change();
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('projects', function (Blueprint $table) {
-            $table->date('date_taken')->nullable()->after('id');
+        Schema::table('project_progress', function (Blueprint $table) {
+            $table->decimal('target_actual', 10, 2)->nullable()->change();
         });
     }
 };

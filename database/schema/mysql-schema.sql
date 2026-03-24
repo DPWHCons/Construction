@@ -179,41 +179,6 @@ CREATE TABLE `password_reset_tokens` (
   PRIMARY KEY (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `project_contracts`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `project_contracts` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `project_id` bigint unsigned NOT NULL,
-  `contract_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `revised_cost` decimal(10,2) DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `project_contracts_project_id_foreign` (`project_id`),
-  KEY `project_contracts_contract_id_foreign` (`contract_id`),
-  CONSTRAINT `project_contracts_project_id_foreign` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `project_engineers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `project_engineers` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `project_id` bigint unsigned NOT NULL,
-  `engineer_id` bigint unsigned NOT NULL,
-  `title_id` bigint unsigned NOT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `project_engineers_project_id_engineer_id_unique` (`project_id`,`engineer_id`),
-  KEY `project_engineers_engineer_id_foreign` (`engineer_id`),
-  KEY `project_engineers_title_id_foreign` (`title_id`),
-  CONSTRAINT `project_engineers_engineer_id_foreign` FOREIGN KEY (`engineer_id`) REFERENCES `engineers` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `project_engineers_project_id_foreign` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `project_engineers_title_id_foreign` FOREIGN KEY (`title_id`) REFERENCES `engineer_titles` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `project_images`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -235,21 +200,9 @@ DROP TABLE IF EXISTS `project_progress`;
 CREATE TABLE `project_progress` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `project_id` bigint unsigned NOT NULL,
-  `target_planned` decimal(10,2) DEFAULT NULL,
-  `target_revised` decimal(10,2) DEFAULT NULL,
   `target_actual` decimal(10,2) DEFAULT NULL,
-  `physical_accomplishment_planned` decimal(5,2) DEFAULT NULL,
-  `physical_accomplishment_revised` decimal(5,2) DEFAULT NULL,
-  `physical_accomplishment_actual` decimal(5,2) DEFAULT NULL,
-  `target_start_planned` date DEFAULT NULL,
-  `target_start_revised` date DEFAULT NULL,
   `target_start_actual` date DEFAULT NULL,
-  `target_completion_planned` date DEFAULT NULL,
-  `target_completion_revised` date DEFAULT NULL,
   `target_completion_actual` date DEFAULT NULL,
-  `completion_percentage_planned` decimal(5,2) DEFAULT NULL,
-  `completion_percentage_actual` decimal(5,2) DEFAULT NULL,
-  `slippage` decimal(5,2) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -370,4 +323,3 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (18,'2026_03_14_000
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (19,'2026_03_14_000001_update_projects_table_schema',2);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (20,'2026_03_14_000002_update_categories_table_schema',2);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (21,'2026_03_14_000003_create_assigned_engineers_table',3);
-INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (22,'2026_03_14_000004_fix_project_contracts_contract_id',4);

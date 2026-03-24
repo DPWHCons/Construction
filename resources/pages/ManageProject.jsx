@@ -39,6 +39,14 @@ export default function ManageProject({ projects, categories, availableLetters, 
         preserveState: true,
     });
 
+    // Stop auto-refresh to prevent delays when adding/updating projects
+    useEffect(() => {
+        stopAutoRefresh();
+        return () => {
+            startAutoRefresh();
+        };
+    }, []);
+
     // Cleanup DPWHLoading state on unmount and reset on mount
     useEffect(() => {
         // Reset loading state when component mounts
@@ -60,54 +68,85 @@ export default function ManageProject({ projects, categories, availableLetters, 
         setSelectedYear(initialYear || 'all');
     }, [initialYear]);
 
-    // Group projects by year and category for transparency
+    // Group projects by year and sort by contract ID last 3 digits
     const groupedProjects = useMemo(() => {
         // Backend already filtered by year - just group the data
         const filteredData = projectData;
 
         return filteredData.reduce((groups, project) => {
-            const categoryName = project.category?.name || 'Uncategorized';
             const year = project.project_year || 'Unknown Year';
             const groupKey = selectedYear === 'all' 
-                ? `${year}__${categoryName}`
-                : categoryName;
+                ? year
+                : selectedYear;
 
-            if (!groups[groupKey]) groups[groupKey] = { year, categoryName, projects: [] };
+            if (!groups[groupKey]) groups[groupKey] = { year, projects: [] };
             groups[groupKey].projects.push(project);
             return groups;
         }, {});
     }, [projectData, selectedYear]);
 
-    // Sort the initial groupedProjects by year to maintain consistent order
+    // Sort projects within each group by contract ID last 3 digits in ascending order
     const sortedGroupedProjects = useMemo(() => {
-        if (selectedYear !== 'all') return groupedProjects;
+        const sorted = {};
         
-        const entries = Object.entries(groupedProjects);
+        Object.entries(groupedProjects).forEach(([groupKey, group]) => {
+            const sortedProjects = [...group.projects].sort((a, b) => {
+                // Extract last 3 digits from contract ID
+                const getContractLast3 = (contractId) => {
+                    if (!contractId) return 0;
+                    const match = contractId.match(/(\d{3})$/);
+                    return match ? parseInt(match[1]) : 0;
+                };
+                
+                const aLast3 = getContractLast3(a.contract_id);
+                const bLast3 = getContractLast3(b.contract_id);
+                
+                return aLast3 - bLast3;
+            });
+            
+            sorted[groupKey] = { ...group, projects: sortedProjects };
+        });
+        
+        return sorted;
+    }, [groupedProjects]);
+
+    // Sort the initial groupedProjects by year to maintain consistent order
+    const finalGroupedProjects = useMemo(() => {
+        if (selectedYear !== 'all') return sortedGroupedProjects;
+        
+        const entries = Object.entries(sortedGroupedProjects);
         entries.sort(([, groupA], [, groupB]) => {
             // Handle "Unknown Year" by putting it at the end
             if (groupA.year === 'Unknown Year') return 1;
             if (groupB.year === 'Unknown Year') return -1;
-            // Sort by year in descending order, then by category name
-            if (groupA.year !== groupB.year) {
-                return parseInt(groupB.year) - parseInt(groupA.year);
-            }
-            return groupA.categoryName.localeCompare(groupB.categoryName);
+            // Sort by year in descending order
+            return parseInt(groupB.year) - parseInt(groupA.year);
         });
         
         return Object.fromEntries(entries);
-    }, [groupedProjects, selectedYear]);
+    }, [sortedGroupedProjects, selectedYear]);
 
     // Group by year for better organization
     const projectsByYear = useMemo(() => {
         if (selectedYear !== 'all') {
             // When a specific year is selected, just return the grouped projects as-is
-            return new Map([[selectedYear, Object.entries(sortedGroupedProjects)]]);
+            return new Map([[selectedYear, Object.entries(finalGroupedProjects)]]);
         }
 
-        // When showing all years, group by year using Map to preserve insertion order
+        // When showing all years, use the sorted entries to preserve order
         const yearGroups = new Map();
+        
+        // Get sorted entries directly from the sorting logic
+        const entries = Object.entries(sortedGroupedProjects);
+        entries.sort(([, groupA], [, groupB]) => {
+            // Handle "Unknown Year" by putting it at the end
+            if (groupA.year === 'Unknown Year') return 1;
+            if (groupB.year === 'Unknown Year') return -1;
+            // Sort by year in descending order
+            return parseInt(groupB.year) - parseInt(groupA.year);
+        });
 
-        Object.entries(sortedGroupedProjects).forEach(([groupKey, group]) => {
+        entries.forEach(([groupKey, group]) => {
             const { year } = group;
 
             if (!yearGroups.has(year)) {
@@ -116,7 +155,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
             yearGroups.get(year).push([groupKey, group]);
         });
-
+        
         return yearGroups;
     }, [sortedGroupedProjects, selectedYear]);
 
@@ -124,24 +163,34 @@ export default function ManageProject({ projects, categories, availableLetters, 
         setOpenCategories(prevOpen => {
             const updatedOpen = { ...prevOpen };
 
-            // Only add new categories that don't exist yet, default to closed
-            Object.keys(groupedProjects).forEach(groupKey => {
+            // Only add new years that don't exist yet
+            Object.keys(finalGroupedProjects).forEach(groupKey => {
                 if (!(groupKey in updatedOpen)) {
-                    // Auto-open categories when filtering by specific year
-                    updatedOpen[groupKey] = selectedYear !== 'all';
+                    // Default to closed for all years initially
+                    updatedOpen[groupKey] = false;
                 }
             });
 
-            // Remove categories that no longer exist
+            // Open the most recent year by default (only when no years are currently open)
+            const yearKeys = Object.keys(finalGroupedProjects);
+            const hasAnyOpen = Object.values(updatedOpen).some(isOpen => isOpen);
+            
+            if (!hasAnyOpen && yearKeys.length > 0) {
+                // Find the most recent year (first in sorted order)
+                const mostRecentYear = yearKeys[0];
+                updatedOpen[mostRecentYear] = true;
+            }
+
+            // Remove years that no longer exist
             Object.keys(updatedOpen).forEach(groupKey => {
-                if (!(groupKey in groupedProjects)) {
+                if (!(groupKey in finalGroupedProjects)) {
                     delete updatedOpen[groupKey];
                 }
             });
 
             return updatedOpen;
         });
-    }, [groupedProjects, selectedYear]);
+    }, [finalGroupedProjects, selectedYear]);
 
     const handleEditProject = (project) => {
         setEditingProject(project);
@@ -202,9 +251,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
             const isCurrentlyExpanded = newSet.has(year);
 
             if (isCurrentlyExpanded) {
-                // Prevent collapsing the last open year (avoid empty UI)
-                if (newSet.size === 1) return prev;
-                
                 // Start closing animation
                 setAnimatingYears(prev => new Set(prev).add(year));
                 newSet.delete(year);
@@ -284,47 +330,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
         }
     };
 
-    const toggleCategory = (category) => {
-        if (animatingCategories.has(category)) return;
-        
-        const isOpen = openCategories[category];
-        
-        if (!isOpen) {
-            // Calculate height before opening
-            const element = document.getElementById(`category-content-${category}`);
-            if (element) {
-                const height = element.scrollHeight;
-                setCategoryHeights(prev => ({ ...prev, [category]: height }));
-                setAnimatingCategories(prev => new Set(prev).add(category));
-                
-                // Open category
-                setOpenCategories(prev => ({ ...prev, [category]: true }));
-                
-                // Remove from animating after animation completes
-                setTimeout(() => {
-                    setAnimatingCategories(prev => {
-                        const newSet = new Set(prev);
-                        newSet.delete(category);
-                        return newSet;
-                    });
-                }, 300);
-            }
-        } else {
-            // Start closing animation
-            setAnimatingCategories(prev => new Set(prev).add(category));
-            setOpenCategories(prev => ({ ...prev, [category]: false }));
-            
-            // Remove from animating after animation completes
-            setTimeout(() => {
-                setAnimatingCategories(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(category);
-                    return newSet;
-                });
-            }, 300);
-        }
-    };
-
     const updateProjectData = (updatedProject) => {
         if (!updatedProject || !updatedProject.id) return;
         
@@ -340,20 +345,9 @@ export default function ManageProject({ projects, categories, availableLetters, 
         if (!projectsData) return;
         
         if (Array.isArray(projectsData)) {
-            // Merge new projects with existing data instead of replacing
-            setProjectData(prev => {
-                const existingIds = new Set(prev.map(p => p.id));
-                const newProjects = projectsData.filter(p => !existingIds.has(p.id));
-                
-                // Update existing projects that have changed
-                const updatedExisting = prev.map(p => {
-                    const updated = projectsData.find(np => np.id === p.id);
-                    return updated ? { ...p, ...updated } : p;
-                });
-                
-                // Add new projects at the beginning
-                return [...newProjects, ...updatedExisting];
-            });
+            // If this looks like a complete server response (all projects), replace entirely
+            // Backend returns complete project list after creation to ensure consistency
+            setProjectData(projectsData);
         } else if (projectsData.id) {
             // Handle single project (backward compatibility)
             setProjectData(prev => {
@@ -367,11 +361,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
         }
     };
 
-    const getCompletionPercentage = (projects) => {
-        if (!Array.isArray(projects) || projects.length === 0) return 0;
-        const completed = projects.filter(p => p.status === 'completed').length;
-        return Math.round((completed / projects.length) * 100);
-    };
 
     const handleArchiveProject = async (project) => {
         const result = await showProjectArchiveConfirmation(project.title);
@@ -638,9 +627,9 @@ export default function ManageProject({ projects, categories, availableLetters, 
                     </button>
                 </div>
 
-                {/* Projects Grouped by Year and Category */}
+                {/* Projects Grouped by Year */}
                 <div className="mt-8 space-y-4">
-                    {Array.from(projectsByYear.entries()).map(([year, categoriesInYear]) => (
+                    {Array.from(projectsByYear.entries()).map(([year, yearData]) => (
                         <div key={year} className="space-y-1">
                             {/* Year Display - Full Width Flat Header */}
                             {selectedYear === 'all' && year && (
@@ -664,100 +653,52 @@ export default function ManageProject({ projects, categories, availableLetters, 
                                 </div>
                             )}
 
-                            {/* Categories within this year - Animated container */}
+                            {/* Projects List for this year - Animated container */}
                             <div
                                 id={`year-content-${year}`}
                                 className={`year-content ${(selectedYear !== 'all' || expandedYears.has(year)) ? 'expanded' : 'collapsed'}`}
                                 style={{
-                                    maxHeight: (selectedYear !== 'all' || expandedYears.has(year)) ? `${yearHeights[year] || '2000'}px` : '0'
+                                    maxHeight: (selectedYear !== 'all' || expandedYears.has(year)) ? '9999px' : '0'
                                 }}
                             >
-                                {/* Categories content - Always show categories when year is expanded */}
                                 {((selectedYear === 'all' && year && expandedYears.has(year)) || selectedYear !== 'all') && (
-                                    categoriesInYear.map(([groupKey, group], index) => {
-                                const { categoryName, projects: projectsInCategory } = group;
-                                const displayName = categoryName;
-                                const completionPercentage = getCompletionPercentage(projectsInCategory);
-                                const isFirstCategory = index === 0;
-
-                                return (
-                                    <div key={groupKey} className={`${selectedYear !== 'all' && index > 0 ? 'mt-4' : ''}`}>
-                                        {/* Category Card Header */}
-                                        <div
-                                            onClick={() => toggleCategory(groupKey)}
-                                            className="flex items-center justify-between px-5 py-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex-1">
-                                                    <h3 className="font-semibold text-slate-800 font-montserrat text-base">{displayName}</h3>
-                                                    <div className="flex items-center gap-3 mt-1.5">
-                                                        <p className="text-slate-500 text-sm font-montserrat">{projectsInCategory.length} project{projectsInCategory.length !== 1 ? 's' : ''}</p>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                                                <div
-                                                                    className={`h-full transition-all duration-500 ${completionPercentage >= 80 ? 'bg-green-500' :
-                                                                            completionPercentage >= 60 ? 'bg-blue-500' :
-                                                                                completionPercentage >= 40 ? 'bg-yellow-500' :
-                                                                                    'bg-red-500'
-                                                                        }`}
-                                                                    style={{ width: `${completionPercentage}%` }}
-                                                                ></div>
-                                                            </div>
-                                                            <span className="text-xs text-slate-500 font-medium">{completionPercentage}%</span>
+                                    <div className="space-y-0">
+                                        {yearData.map(([groupKey, group]) => {
+                                            const { projects: projectsInYear } = group;
+                                            
+                                            if (projectsInYear.length === 0) {
+                                                return (
+                                                    <div key={groupKey} className="bg-white p-8 text-center rounded-xl">
+                                                        <div className="flex flex-col items-center">
+                                                            <svg className="w-12 h-12 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                                            </svg>
+                                                            <p className="text-slate-500 font-montserrat">No projects found</p>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </div>
-                                            <svg
-                                                className={`w-5 h-5 text-slate-400 transform transition-transform duration-200 ${openCategories[groupKey] ? 'rotate-180' : ''}`}
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </div>
+                                                );
+                                            }
 
-                                        {/* Projects List for this Category */}
-                                        <div
-                                            id={`category-content-${groupKey}`}
-                                            className={`category-content ${openCategories[groupKey] ? 'expanded' : 'collapsed'}`}
-                                            style={{
-                                                height: openCategories[groupKey] ? `${categoryHeights[groupKey] || 'auto'}px` : '0'
-                                            }}
-                                        >
-                                            {projectsInCategory.length === 0 ? (
-                                                <div className="bg-white p-8 text-center rounded-b-xl">
-                                                    <div className="flex flex-col items-center">
-                                                        <svg className="w-12 h-12 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                                                        </svg>
-                                                        <p className="text-slate-500 font-montserrat">No projects found in this category</p>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="pt-2 space-y-2">
-                                                    {projectsInCategory.map((project, index) => {
+                                            return (
+                                                <div key={groupKey}>
+                                                    {projectsInYear.map((project, index) => {
                                                         const contract = project.contracts?.[0] || {};
 
                                                         return (
                                                             <div 
-                                                                key={`project-${project.id}-${index}`} 
-                                                                className="bg-white rounded-xl p-4 hover:bg-slate-50 transition-colors cursor-pointer shadow-sm"
+                                                                key={project.id} 
+                                                                className="bg-white rounded-xl p-4 hover:bg-slate-50 transition-colors cursor-pointer shadow-sm border border-slate-200"
                                                                 onClick={() => handleViewDetails(project)}
                                                             >
                                                                 <div className="flex items-start justify-between gap-4">
                                                                     <div className="flex-1 min-w-0">
-                                                                        <div className="flex items-center gap-2 mb-1">
-                                                                            <span className="text-xs font-medium text-slate-400">{project.contract_id || 'No Contract ID'}</span>
-                                                                            <span className="text-xs text-slate-300">|</span>
-                                                                            <span className="text-xs text-slate-400">{project.project_id || '-'}</span>
+                                                                        <div className="flex items-center gap-3 mb-2">
+                                                                            <span className="text-sm font-medium text-slate-600">{project.contract_id || '-'}</span>
+                                                                            <span className="text-xs px-2 py-1 rounded-full text-slate-600">
+                                                                                {project.category?.name || 'Uncategorized'}
+                                                                            </span>
                                                                         </div>
-                                                                        <h4 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-1">{project.title}</h4>
-                                                                        <div className="flex items-center gap-3 text-xs text-slate-500">
-                                                                            <span>{project.project_year || '-'}</span>
-                                                                            <span>{project.formatted_project_cost || formatPeso(project.project_cost || 0)}</span>
-                                                                        </div>
+                                                                        <h4 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-2">{project.title}</h4>
                                                                     </div>
                                                                     <div className="flex items-center gap-2 shrink-0">
                                                                         <button
@@ -795,15 +736,12 @@ export default function ManageProject({ projects, categories, availableLetters, 
                                                         );
                                                     })}
                                                 </div>
-                                            )}
-                                        </div>
-
-                            </div>
-                        );
-                                    })
+                                            );
+                                        })}
+                                    </div>
                                 )}
-                                </div>
                             </div>
+                        </div>
                     ))}
                 </div>
 

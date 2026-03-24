@@ -62,21 +62,9 @@ export default function CreateProjectModal({ show, onClose, categories = [], sel
         scope_of_work_main: '',
 
         // Progress & scope
-        target_planned: '',
-        target_revised: '',
         target_actual: '',
-        physical_accomplishment_planned: '',
-        physical_accomplishment_revised: '',
-        physical_accomplishment_actual: '',
-        target_start_planned: '',
-        target_start_revised: '',
         target_start_actual: '',
-        target_completion_planned: '',
-        target_completion_revised: '',
         target_completion_actual: '',
-        completion_percentage_planned: '',
-        completion_percentage_actual: '',
-        slippage: '',
 
         // Remarks
         remarks: '',
@@ -95,13 +83,6 @@ export default function CreateProjectModal({ show, onClose, categories = [], sel
         images: [],
     });
 
-    // Auto-calculate slippage when completion percentages change
-    useEffect(() => {
-        const planned = parseFloat(data.completion_percentage_planned) || 0;
-        const actual = parseFloat(data.completion_percentage_actual) || 0;
-        const slippage = actual - planned;
-        setData('slippage', parseFloat(slippage.toFixed(2)));
-    }, [data.completion_percentage_planned, data.completion_percentage_actual]);
 
     // Control body scroll when modal is open
     useEffect(() => {
@@ -168,21 +149,9 @@ export default function CreateProjectModal({ show, onClose, categories = [], sel
                 scope_of_work_main: '',
 
                 // Progress & scope
-                target_planned: '',
-                target_revised: '',
                 target_actual: '',
-                physical_accomplishment_planned: '',
-                physical_accomplishment_revised: '',
-                physical_accomplishment_actual: '',
-                target_start_planned: '',
-                target_start_revised: '',
                 target_start_actual: '',
-                target_completion_planned: '',
-                target_completion_revised: '',
                 target_completion_actual: '',
-                completion_percentage_planned: '',
-                completion_percentage_actual: '',
-                slippage: '',
 
                 // Remarks
                 remarks: '',

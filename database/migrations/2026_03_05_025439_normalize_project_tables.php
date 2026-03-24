@@ -81,29 +81,13 @@ return new class extends Migration
             $table->foreignId('project_id')->constrained()->onDelete('cascade');
             
             // Target fields
-            $table->decimal('target_planned', 10, 2)->nullable();
-            $table->decimal('target_revised', 10, 2)->nullable();
             $table->decimal('target_actual', 10, 2)->nullable();
             
-            // Physical accomplishment
-            $table->decimal('physical_accomplishment_planned', 5, 2)->nullable();
-            $table->decimal('physical_accomplishment_revised', 5, 2)->nullable();
-            $table->decimal('physical_accomplishment_actual', 5, 2)->nullable();
-            
             // Start dates
-            $table->date('target_start_planned')->nullable();
-            $table->date('target_start_revised')->nullable();
             $table->date('target_start_actual')->nullable();
             
             // Completion dates
-            $table->date('target_completion_planned')->nullable();
-            $table->date('target_completion_revised')->nullable();
             $table->date('target_completion_actual')->nullable();
-            
-            // Completion percentages
-            $table->decimal('completion_percentage_planned', 5, 2)->nullable();
-            $table->decimal('completion_percentage_actual', 5, 2)->nullable();
-            $table->decimal('slippage', 5, 2)->nullable();
             
             $table->timestamps();
         });
@@ -128,21 +112,9 @@ return new class extends Migration
                 'contractor_name',
                 'unit_of_measure',
                 'scope_of_work_main',
-                'target_planned',
-                'target_revised',
                 'target_actual',
-                'physical_accomplishment_planned',
-                'physical_accomplishment_revised',
-                'physical_accomplishment_actual',
-                'target_start_planned',
-                'target_start_revised',
                 'target_start_actual',
-                'target_completion_planned',
-                'target_completion_revised',
                 'target_completion_actual',
-                'completion_percentage_planned',
-                'completion_percentage_actual',
-                'slippage',
                 'remarks'
             ]);
         });
@@ -164,21 +136,9 @@ return new class extends Migration
             $table->string('contractor_name')->nullable();
             $table->string('unit_of_measure')->nullable();
             $table->text('scope_of_work_main')->nullable();
-            $table->decimal('target_planned', 10, 2)->nullable();
-            $table->decimal('target_revised', 10, 2)->nullable();
             $table->decimal('target_actual', 10, 2)->nullable();
-            $table->decimal('physical_accomplishment_planned', 5, 2)->nullable();
-            $table->decimal('physical_accomplishment_revised', 5, 2)->nullable();
-            $table->decimal('physical_accomplishment_actual', 5, 2)->nullable();
-            $table->date('target_start_planned')->nullable();
-            $table->date('target_start_revised')->nullable();
             $table->date('target_start_actual')->nullable();
-            $table->date('target_completion_planned')->nullable();
-            $table->date('target_completion_revised')->nullable();
             $table->date('target_completion_actual')->nullable();
-            $table->decimal('completion_percentage_planned', 5, 2)->nullable();
-            $table->decimal('completion_percentage_actual', 5, 2)->nullable();
-            $table->decimal('slippage', 5, 2)->nullable();
             $table->text('remarks')->nullable();
         });
 
