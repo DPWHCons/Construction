@@ -9,6 +9,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ContractorController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\ImageController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DebugController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +30,9 @@ Route::get('/test-upload', function () {
 
 // Image serving route (publicly accessible for display)
 Route::get('/images/{id}', [ImageController::class, 'show'])->name('images.show');
+
+// Document download route (publicly accessible for download)
+Route::get('/documents/{id}/download', [DocumentController::class, 'download'])->name('documents.download');
 
 Route::middleware(['auth', 'session.activity'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

@@ -12,7 +12,8 @@ class ProjectImage extends Model
 
     protected $fillable = [
         'project_id',
-        'image_path',
+        'document',
+        'filename',
         'url',
         'caption',
         'is_archived',
@@ -24,7 +25,7 @@ class ProjectImage extends Model
         'archived_at' => 'datetime',
     ];
 
-    protected $appends = ['url', 'base64'];
+    protected $appends = ['url'];
 
     public function project(): BelongsTo
     {
@@ -33,14 +34,14 @@ class ProjectImage extends Model
 
     public function getUrlAttribute()
     {
-        // Check if image_path contains base64 data (starts with data: or is base64 string)
-        if ($this->image_path && (str_contains($this->image_path, 'data:') || $this->isBase64($this->image_path))) {
-            // Binary data stored - return route to display image from database
-            return route('images.show', $this->id);
+        // Check if document contains base64 data or file path
+        if ($this->document && (str_contains($this->document, 'data:') || $this->isBase64($this->document))) {
+            // Binary data stored - return route to download document from database
+            return route('documents.download', $this->id);
         }
         
         // File path stored - return storage URL
-        return $this->image_path ? '/storage/' . $this->image_path : null;
+        return $this->document ? '/storage/' . $this->document : null;
     }
     
     /**
@@ -52,25 +53,50 @@ class ProjectImage extends Model
     }
     
     /**
-     * Get image data as base64 for direct embedding
+     * Get document info for display
      */
-    public function getBase64Attribute()
+    public function getDocumentInfoAttribute()
     {
-        if ($this->image_path && (str_contains($this->image_path, 'data:') || $this->isBase64($this->image_path))) {
-            // Binary data - handle base64 conversion
-            if (str_contains($this->image_path, ',')) {
-                // Already a data URL format
-                return $this->image_path;
+        \Log::info('Document info called for ID: ' . $this->id);
+        \Log::info('Filename from DB: ' . ($this->filename ?? 'NULL'));
+        
+        if ($this->document && (str_contains($this->document, 'data:') || $this->isBase64($this->document))) {
+            // Binary data - extract file info
+            $filename = $this->filename ?: 'Document';
+            
+            if (str_contains($this->document, ',')) {
+                // Data URL format
+                $parts = explode(',', $this->document);
+                $mimeType = explode(';', explode(':', $parts[0])[1])[0];
             } else {
-                // Just base64 string, need to detect MIME type
-                $binaryData = base64_decode($this->image_path);
-                $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                $mimeType = finfo_buffer($finfo, $binaryData);
-                finfo_close($finfo);
-                
-                return 'data:' . $mimeType . ';base64,' . $this->image_path;
+                // Base64 string - assume Word document
+                $mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
             }
+            
+            $result = [
+                'filename' => $filename,
+                'mime_type' => $mimeType,
+                'size' => strlen(base64_decode($this->document)),
+                'type' => 'word_document'
+            ];
+            
+            \Log::info('Document info result: ', $result);
+            return $result;
         }
+        
+        \Log::info('No document data found');
         return null;
+    }
+    
+    private function getExtensionFromMimeType($mimeType)
+    {
+        $mimeToExt = [
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/msword' => 'doc',
+            'application/pdf' => 'pdf',
+            'text/plain' => 'txt',
+        ];
+        
+        return $mimeToExt[$mimeType] ?? 'docx';
     }
 }

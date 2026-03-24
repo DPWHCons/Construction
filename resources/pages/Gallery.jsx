@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import useAutoRefresh from '@/Hooks/useAutoRefresh';
 
 export default function Gallery({ projects }) {
-    const [selectedImage, setSelectedImage] = useState(null);
+    const [selectedDocument, setSelectedDocument] = useState(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
     const [viewMode, setViewMode] = useState('grid'); // grid, masonry, timeline
@@ -88,21 +88,21 @@ export default function Gallery({ projects }) {
         let currentIndex = -1;
         
         // Method 1: Direct object comparison
-        currentIndex = filteredImages.findIndex(img => img === selectedImage);
+        currentIndex = filteredImages.findIndex(img => img === selectedDocument);
         
         // Method 2: Compare by image_path
-        if (currentIndex === -1 && selectedImage?.image_path) {
-            currentIndex = filteredImages.findIndex(img => img.image_path === selectedImage.image_path);
+        if (currentIndex === -1 && selectedDocument?.image_path) {
+            currentIndex = filteredImages.findIndex(img => img.image_path === selectedDocument.image_path);
         }
         
         // Method 3: Compare by url
-        if (currentIndex === -1 && selectedImage?.url) {
-            currentIndex = filteredImages.findIndex(img => img.url === selectedImage.url);
+        if (currentIndex === -1 && selectedDocument?.url) {
+            currentIndex = filteredImages.findIndex(img => img.url === selectedDocument.url);
         }
         
         // Method 4: Compare by id if available
-        if (currentIndex === -1 && selectedImage?.id) {
-            currentIndex = filteredImages.findIndex(img => img.id === selectedImage.id);
+        if (currentIndex === -1 && selectedDocument?.id) {
+            currentIndex = filteredImages.findIndex(img => img.id === selectedDocument.id);
         }
         
         // If still not found, use first image
@@ -121,7 +121,7 @@ export default function Gallery({ projects }) {
 
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (!selectedImage) return;
+            if (!selectedDocument) return;
             
             if (e.key === 'ArrowRight') navigateImage(1);
             if (e.key === 'ArrowLeft') navigateImage(-1);
@@ -130,7 +130,7 @@ export default function Gallery({ projects }) {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedImage]);
+    }, [selectedDocument]);
 
     const getImageDimensions = (index) => {
         // Create varied image sizes for masonry effect
@@ -530,7 +530,7 @@ export default function Gallery({ projects }) {
                 </div>
 
                 {/* Image Popup */}
-        {selectedImage && (
+        {selectedDocument && (
             <div
                 className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
                 onClick={closeModal}
@@ -580,44 +580,44 @@ export default function Gallery({ projects }) {
                 >
                     {/* Project Information */}
                     <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/80 to-transparent p-6 text-white">
-                        <h3 className="text-xl font-bold mb-2">{selectedImage.projectTitle}</h3>
+                        <h3 className="text-xl font-bold mb-2">{selectedDocument.document_info?.filename || `Document ${currentDocumentIndex + 1}`}</h3>
                         <div className="flex flex-wrap gap-4 text-sm">
                             <div>
                                 <span className="text-gray-300">Project ID:</span>
-                                <span className="ml-1 font-mono">{selectedImage.projectId}</span>
+                                <span className="ml-1 font-mono">{selectedDocument.projectId}</span>
                             </div>
                             <div>
                                 <span className="text-gray-300">Contract ID:</span>
-                                <span className="ml-1 font-mono">{selectedImage.contractId}</span>
+                                <span className="ml-1 font-mono">{selectedDocument.contractId}</span>
                             </div>
                             <div>
                                 <span className="text-gray-300">Category:</span>
-                                <span className="ml-1">{selectedImage.projectCategory}</span>
+                                <span className="ml-1">{selectedDocument.projectCategory}</span>
                             </div>
                             <div>
                                 <span className="text-gray-300">Year:</span>
-                                <span className="ml-1">{selectedImage.projectYear}</span>
+                                <span className="ml-1">{selectedDocument.projectYear}</span>
                             </div>
                             <div>
                                 <span className="text-gray-300">Status:</span>
                                 <span className={`ml-1 px-2 py-1 rounded text-xs font-medium ${
-                                    selectedImage.projectStatus === 'completed' ? 'bg-green-600' :
-                                    selectedImage.projectStatus === 'ongoing' ? 'bg-blue-600' :
+                                    selectedDocument.projectStatus === 'completed' ? 'bg-green-600' :
+                                    selectedDocument.projectStatus === 'ongoing' ? 'bg-blue-600' :
                                     'bg-yellow-600'
                                 }`}>
-                                    {selectedImage.projectStatus}
+                                    {selectedDocument.projectStatus}
                                 </span>
                             </div>
                         </div>
-                        {selectedImage.caption && (
-                            <p className="mt-2 text-sm text-gray-200 italic">{selectedImage.caption}</p>
+                        {selectedDocument.caption && (
+                            <p className="mt-2 text-sm text-gray-200 italic">{selectedDocument.caption}</p>
                         )}
                     </div>
                     
                     {/* Image */}
                     <img
-                        src={selectedImage.url || (selectedImage.image_path ? `/storage/${selectedImage.image_path}` : '')}
-                        alt={selectedImage.caption || 'Project image'}
+                        src={selectedDocument.url || (selectedDocument.image_path ? `/storage/${selectedDocument.image_path}` : '')}
+                        alt={selectedDocument.caption || 'Project image'}
                         className="w-full h-full object-contain rounded-lg mt-20"
                     />
                 </div>

@@ -292,9 +292,9 @@ class ProjectController extends Controller
             'assigned_engineer_4' => 'nullable|string|max:255',
             'engineer_title_4' => 'nullable|string',
             
-            // Images
+            // Documents
             'images' => 'nullable|array|max:10',
-            'images.*' => 'image|mimes:jpeg,jpg,png|max:2048',
+            'images.*' => 'file|mimes:doc,docx|max:10240', // 10MB max for Word documents
         ]);
 
         // Handle category - flexible approach for user convenience
@@ -621,9 +621,9 @@ class ProjectController extends Controller
             'assigned_engineer_4' => 'nullable|string|max:255',
             'engineer_title_4' => 'nullable|string',
             
-            // Images
+            // Documents
             'images' => 'nullable|array|max:10',
-            'images.*' => 'image|mimes:jpeg,jpg,png|max:2048',
+            'images.*' => 'file|mimes:doc,docx|max:10240', // 10MB max for Word documents
             'removed_images' => 'nullable|array'
         ]);
 
@@ -748,43 +748,52 @@ class ProjectController extends Controller
 
         // Handle images - remove old images first
         if (isset($validated['removed_images']) && is_array($validated['removed_images'])) {
+            \Log::info('Processing removed images', ['removed_images' => $validated['removed_images']]);
             foreach ($validated['removed_images'] as $imageId) {
+                \Log::info('Deleting image with ID: ' . $imageId);
                 $image = $project->images()->find($imageId);
                 if ($image) {
+                    \Log::info('Found image to delete', ['id' => $image->id, 'filename' => $image->filename]);
                     // For backward compatibility, delete file if it exists
-                    if ($image->image_path && str_contains($image->image_path, '/')) {
-                        Storage::disk('public')->delete($image->image_path);
+                    if ($image->document && str_contains($image->document, '/')) {
+                        Storage::disk('public')->delete($image->document);
                     }
                     $image->delete();
-                }
-            }
-        }
-
-        // Add new images - store binary data as base64 in database
-        if (isset($validated['images']) && is_array($validated['images'])) {
-            \Log::info('Processing images for update', ['count' => count($validated['images'])]);
-            
-            foreach ($validated['images'] as $index => $image) {
-                try {
-                    \Log::info('Processing image', ['index' => $index, 'type' => get_class($image)]);
-                    
-                    $imageData = file_get_contents($image->getPathname());
-                    // Encode binary data as base64 to store in LONGTEXT
-                    $base64Data = base64_encode($imageData);
-                    
-                    $project->images()->create([
-                        'project_id' => $project->id,
-                        'image_path' => $base64Data, // Store base64 encoded data
-                    ]);
-                    
-                    \Log::info('Image stored successfully', ['index' => $index]);
-                } catch (\Exception $e) {
-                    \Log::error('Failed to store image to database: ' . $e->getMessage());
-                    // Continue with other images even if one fails
+                    \Log::info('Image deleted successfully');
+                } else {
+                    \Log::warning('Image not found for deletion', ['imageId' => $imageId]);
                 }
             }
         } else {
-            \Log::info('No images found in validated data', ['validated_keys' => array_keys($validated)]);
+            \Log::info('No removed_images found in validated data');
+        }
+
+        // Add new documents - store binary data as base64 in database
+        if (isset($validated['images']) && is_array($validated['images'])) {
+            \Log::info('Processing documents for update', ['count' => count($validated['images'])]);
+            
+            foreach ($validated['images'] as $index => $document) {
+                try {
+                    \Log::info('Processing document', ['index' => $index, 'type' => get_class($document)]);
+                    
+                    $documentData = file_get_contents($document->getPathname());
+                    // Encode binary data as base64 to store in LONGTEXT
+                    $base64Data = base64_encode($documentData);
+                    
+                    $project->images()->create([
+                        'project_id' => $project->id,
+                        'document' => $base64Data, // Store base64 encoded data
+                        'filename' => $document->getClientOriginalName(), // Store original filename
+                    ]);
+                    
+                    \Log::info('Document stored successfully', ['index' => $index]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to store document to database: ' . $e->getMessage());
+                    // Continue with other documents even if one fails
+                }
+            }
+        } else {
+            \Log::info('No documents found in validated data', ['validated_keys' => array_keys($validated)]);
         }
 
         // Get all projects with relationships and filters (same as index method)
