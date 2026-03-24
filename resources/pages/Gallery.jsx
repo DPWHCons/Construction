@@ -1,12 +1,19 @@
 import PageLayout from '@/Layouts/PageLayout';
 import { Head } from '@inertiajs/react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import useAutoRefresh from '@/Hooks/useAutoRefresh';
+import { renderAsync } from 'docx-preview';
 
 export default function Gallery({ projects }) {
     const [selectedDocument, setSelectedDocument] = useState(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
+    const [docxPreviewLoading, setDocxPreviewLoading] = useState(false);
+    const [docxPreviewError, setDocxPreviewError] = useState('');
+    const [isDocxPreview, setIsDocxPreview] = useState(false);
+    const [useIframeFallback, setUseIframeFallback] = useState(false);
+    const [modalScale, setModalScale] = useState(1);
+    const docxContainerRef = useRef(null);
     const [viewMode, setViewMode] = useState('grid'); // grid, masonry, timeline
     const [selectedProject, setSelectedProject] = useState('all');
     const [selectedYear, setSelectedYear] = useState('all');
@@ -56,13 +63,12 @@ export default function Gallery({ projects }) {
         return matchesProject && matchesYear && matchesSearch;
     });
 
-    const openImageModal = (projectIndex, imageIndex) => {
-        const image = allImages.find(img => img.projectIndex === projectIndex && img.globalIndex === imageIndex);
-        if (image) {
-            setCurrentProjectIndex(projectIndex);
-            setCurrentImageIndex(imageIndex);
-            setSelectedImage(image);
-        }
+    const openImageModal = (document) => {
+        if (!document) return;
+        if (!document.url) return;
+
+        const previewUrl = `/document-preview?url=${encodeURIComponent(document.url)}&filename=${encodeURIComponent(document.filename || 'Document')}`;
+        window.open(previewUrl, '_blank', 'noopener,noreferrer');
     };
 
     const toggleProjectExpansion = (projectId) => {
@@ -78,7 +84,15 @@ export default function Gallery({ projects }) {
     };
 
     const closeModal = () => {
-        setSelectedImage(null);
+        setSelectedDocument(null);
+        setDocxPreviewError('');
+        setDocxPreviewLoading(false);
+        setIsDocxPreview(false);
+        setUseIframeFallback(false);
+        if (docxContainerRef.current) {
+            docxContainerRef.current.innerHTML = '';
+        }
+        setModalScale(1);
     };
 
     const navigateImage = (direction) => {
@@ -116,7 +130,7 @@ export default function Gallery({ projects }) {
         if (newIndex < 0) newIndex = filteredImages.length - 1;
         if (newIndex >= filteredImages.length) newIndex = 0;
         
-        setSelectedImage(filteredImages[newIndex]);
+        setSelectedDocument(filteredImages[newIndex]);
     };
 
     useEffect(() => {
@@ -130,6 +144,73 @@ export default function Gallery({ projects }) {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedDocument]);
+
+    useEffect(() => {
+        const previewDocx = async () => {
+            if (!selectedDocument?.url) {
+                setIsDocxPreview(false);
+                setUseIframeFallback(false);
+                return;
+            }
+
+            const fileName = selectedDocument.filename || '';
+            const docUrl = selectedDocument.url;
+            const isDocx = /\.docx($|\?)/i.test(fileName) || /\.docx($|\?)/i.test(docUrl);
+            setIsDocxPreview(isDocx);
+            setUseIframeFallback(false);
+
+            if (!isDocx) {
+                setDocxPreviewError('');
+                setDocxPreviewLoading(false);
+                if (docxContainerRef.current) {
+                    docxContainerRef.current.innerHTML = '';
+                }
+                return;
+            }
+
+            setDocxPreviewLoading(true);
+            setDocxPreviewError('');
+            if (docxContainerRef.current) {
+                docxContainerRef.current.innerHTML = '';
+            }
+
+            try {
+                const response = await fetch(docUrl, { credentials: 'include' });
+                if (!response.ok) {
+                    throw new Error('Could not load the DOCX file.');
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                if (!docxContainerRef.current) return;
+                const blob = new Blob([arrayBuffer], {
+                    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                });
+
+                await renderAsync(blob, docxContainerRef.current, null, {
+                    inWrapper: true,
+                    breakPages: true,
+                    renderHeaders: true,
+                    renderFooters: true,
+                    renderFootnotes: true,
+                    ignoreWidth: false,
+                    ignoreHeight: false,
+                    useBase64URL: true,
+                });
+
+                // Some files can render without visible DOM; fallback to iframe in that case.
+                if (!docxContainerRef.current.querySelector('.docx')) {
+                    setUseIframeFallback(true);
+                }
+            } catch (error) {
+                setUseIframeFallback(true);
+                setDocxPreviewError(error?.message || 'Unable to preview this DOCX file.');
+            } finally {
+                setDocxPreviewLoading(false);
+            }
+        };
+
+        previewDocx();
     }, [selectedDocument]);
 
     const getImageDimensions = (index) => {
@@ -204,7 +285,7 @@ export default function Gallery({ projects }) {
                                 <div className="relative">
                                     <input
                                         type="text"
-                                        placeholder="Search photos..."
+                                        placeholder="Search documents..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent" style={{marginRight: '1rem', width: '200px', minWidth: '300px'}}
@@ -260,7 +341,7 @@ export default function Gallery({ projects }) {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                             </div>
-                            <h3 className="text-xl font-semibold text-slate-900 mb-2">No photos found</h3>
+                            <h3 className="text-xl font-semibold text-slate-900 mb-2">No documents found</h3>
                         </div>
                     ) : (
                         <>
@@ -323,7 +404,7 @@ export default function Gallery({ projects }) {
                                                                                 {project.category?.name || 'Uncategorized'}
                                                                             </span>
                                                                             <span className="text-sm text-slate-500 font-medium">
-                                                                                {projectImages.length} {projectImages.length === 1 ? 'photo' : 'photos'}
+                                                                                {projectImages.length} {projectImages.length === 1 ? 'document' : 'documents'}
                                                                             </span>
                                                                         </div>
                                                                     </div>
@@ -354,23 +435,46 @@ export default function Gallery({ projects }) {
                                                             >
                                                                 <div className="p-4">
                                                                     <div className="flex flex-wrap gap-3">
-                                                                    {projectImages.map((image, imageIndex) => (
+                                                                    {projectImages.map((document, documentIndex) => (
                                                                         <div
-                                                                            key={image.id}
-                                                                            className="group relative w-20 h-20 overflow-hidden rounded cursor-pointer bg-slate-50 hover:shadow-md transition-all duration-300 hover:scale-105 flex-shrink-0"
-                                                                            onClick={() => openImageModal(
-                                                                                allImages.findIndex(img => img.id === image.id && img.projectTitle === project.title),
-                                                                                allImages.findIndex(img => img.id === image.id && img.projectTitle === project.title)
-                                                                            )}
+                                                                            key={document.id}
+                                                                            className="group relative w-32 h-20 overflow-hidden rounded cursor-pointer bg-white border border-slate-200 hover:shadow-md transition-all duration-300 hover:scale-105 flex-shrink-0"
+                                                                            onClick={() => {
+                                                                                openImageModal({
+                                                                                    ...document,
+                                                                                    projectTitle: project.title,
+                                                                                    projectIndex: allImages.find(doc => doc.id === document.id && doc.projectTitle === project.title)?.projectIndex ?? 0,
+                                                                                });
+                                                                            }}
                                                                         >
-                                                                            <img
-                                                                                src={image.url || `/storage/${image.image_path}`}
-                                                                                alt={image.caption || `Project image ${imageIndex + 1}`}
-                                                                                className="w-full h-full object-cover"
-                                                                                loading="lazy"
-                                                                                width="96"
-                                                                                height="96"
-                                                                            />
+                                                                            <div className="p-2 h-full flex flex-col justify-between">
+                                                                                <div className="flex items-start space-x-2">
+                                                                                    <svg className="w-6 h-6 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                                    </svg>
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <p className="text-xs font-medium text-slate-800 truncate">
+                                                                                            {document.filename || 'Document'}
+                                                                                        </p>
+                                                                                        <p className="text-xs text-slate-500">
+                                                                                            {document.document ? `${(document.document.length / 1024).toFixed(1)} KB` : 'Unknown size'}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex justify-end">
+                                                                                    <a
+                                                                                        href={document.url || '#'}
+                                                                                        download={document.filename || `document_${document.id}.docx`}
+                                                                                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                        title="Download document"
+                                                                                    >
+                                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                                                        </svg>
+                                                                                    </a>
+                                                                                </div>
+                                                                            </div>
                                                                             
                                                                             {/* Hover Overlay */}
                                                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center">
@@ -384,7 +488,7 @@ export default function Gallery({ projects }) {
                                                                             {/* Date Badge */}
                                                                             <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                                                                 <div className="bg-black/60 backdrop-blur-sm text-white text-xs px-1 py-0.5 rounded">
-                                                                                    {new Date(image.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                                    {new Date(document.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -393,7 +497,7 @@ export default function Gallery({ projects }) {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    );
+                                                        );
                                                 })}
                                             </div>
                                         );
@@ -467,7 +571,7 @@ export default function Gallery({ projects }) {
                                                                                 {project.status}
                                                                             </span>
                                                                             <span className="text-sm text-slate-500 font-medium">
-                                                                                {projectImages.length} {projectImages.length === 1 ? 'photo' : 'photos'}
+                                                                                {projectImages.length} {projectImages.length === 1 ? 'document' : 'documents'}
                                                                             </span>
                                                                         </div>
                                                                     </div>
@@ -482,33 +586,54 @@ export default function Gallery({ projects }) {
                                                             {/* Masonry Images */}
                                                             <div className="p-4">
                                                                 <div className="flex flex-wrap gap-3">
-                                                                    {projectImages.map((image, imageIndex) => (
+                                                                    {projectImages.map((document, documentIndex) => (
                                                                         <div
-                                                                            key={image.id}
-                                                                            className="group relative w-20 h-24 overflow-hidden rounded cursor-pointer bg-slate-50 hover:shadow-md transition-all duration-300 hover:scale-105 flex-shrink-0"
-                                                                            onClick={() => openImageModal(
-                                                                                allImages.findIndex(img => img.id === image.id && img.projectTitle === project.title),
-                                                                                allImages.findIndex(img => img.id === image.id && img.projectTitle === project.title)
-                                                                            )}
+                                                                            key={document.id}
+                                                                            className="group relative w-28 h-24 overflow-hidden rounded cursor-pointer bg-white border border-slate-200 hover:shadow-md transition-all duration-300 hover:scale-105 flex-shrink-0"
+                                                                            onClick={() => openImageModal({
+                                                                                ...document,
+                                                                                projectTitle: project.title,
+                                                                                projectIndex: allImages.find(doc => doc.id === document.id && doc.projectTitle === project.title)?.projectIndex ?? 0,
+                                                                            })}
                                                                         >
-                                                                            <img
-                                                                                src={image.url || `/storage/${image.image_path}`}
-                                                                                alt={image.caption || `Project image ${imageIndex + 1}`}
-                                                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                                                                loading="lazy"
-                                                                                width="96"
-                                                                                height="128"
-                                                                            />
+                                                                            <div className="p-2 h-full flex flex-col justify-between">
+                                                                                <div className="flex items-start space-x-1">
+                                                                                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                                    </svg>
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <p className="text-xs font-medium text-slate-800 truncate leading-tight">
+                                                                                            {document.filename || 'Document'}
+                                                                                        </p>
+                                                                                        <p className="text-xs text-slate-500">
+                                                                                            {document.document ? `${(document.document.length / 1024).toFixed(0)} KB` : 'Unknown'}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex justify-end">
+                                                                                    <a
+                                                                                        href={document.url || '#'}
+                                                                                        download={document.filename || `document_${document.id}.docx`}
+                                                                                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                        title="Download document"
+                                                                                    >
+                                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                                                        </svg>
+                                                                                    </a>
+                                                                                </div>
+                                                                            </div>
                                                                             
                                                                             {/* Image Info */}
                                                                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                                                                 <div className="absolute bottom-0 left-0 right-0 p-1 text-white">
-                                                                                    {image.caption && (
-                                                                                        <p className="text-xs text-white/90 truncate leading-tight">{image.caption}</p>
+                                                                                    {document.caption && (
+                                                                                        <p className="text-xs text-white/90 truncate leading-tight">{document.caption}</p>
                                                                                     )}
                                                                                     <div className="flex items-center gap-1">
                                                                                         <span className="text-xs text-white/60">
-                                                                                            {new Date(image.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                                            {new Date(document.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                                                         </span>
                                                                                     </div>
                                                                                 </div>
@@ -575,51 +700,117 @@ export default function Gallery({ projects }) {
                 </button>
 
                 <div
-                    className="relative max-w-4xl max-h-[90vh]  flex flex-col items-center justify-center p-8 overflow-hidden"
+                    className="relative w-full bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col"
+                    style={{
+                        maxWidth: '96vw',
+                        maxHeight: '94vh',
+                    }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* Project Information */}
-                    <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/80 to-transparent p-6 text-white">
-                        <h3 className="text-xl font-bold mb-2">{selectedDocument.document_info?.filename || `Document ${currentDocumentIndex + 1}`}</h3>
-                        <div className="flex flex-wrap gap-4 text-sm">
-                            <div>
-                                <span className="text-gray-300">Project ID:</span>
-                                <span className="ml-1 font-mono">{selectedDocument.projectId}</span>
+                    {/* Document Header */}
+                    <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-6 border-b border-slate-700">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                                <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold">{selectedDocument.filename || 'Document'}</h3>
+                                    <div className="flex items-center space-x-4 text-sm text-slate-300">
+                                        <span>Size: {selectedDocument.document ? `${(selectedDocument.document.length / 1024).toFixed(1)} KB` : 'Unknown'}</span>
+                                        <span>Created: {new Date(selectedDocument.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <span className="text-gray-300">Contract ID:</span>
-                                <span className="ml-1 font-mono">{selectedDocument.contractId}</span>
-                            </div>
-                            <div>
-                                <span className="text-gray-300">Category:</span>
-                                <span className="ml-1">{selectedDocument.projectCategory}</span>
-                            </div>
-                            <div>
-                                <span className="text-gray-300">Year:</span>
-                                <span className="ml-1">{selectedDocument.projectYear}</span>
-                            </div>
-                            <div>
-                                <span className="text-gray-300">Status:</span>
-                                <span className={`ml-1 px-2 py-1 rounded text-xs font-medium ${
-                                    selectedDocument.projectStatus === 'completed' ? 'bg-green-600' :
-                                    selectedDocument.projectStatus === 'ongoing' ? 'bg-blue-600' :
-                                    'bg-yellow-600'
-                                }`}>
-                                    {selectedDocument.projectStatus}
-                                </span>
+                            <div className="flex items-center space-x-2">
+                                <div className="flex items-center bg-white/10 rounded-lg p-1 mr-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setModalScale((prev) => Math.max(0.6, Number((prev - 0.1).toFixed(1))))}
+                                        className="px-2 py-1 text-sm hover:bg-white/20 rounded"
+                                        title="Zoom out document"
+                                    >
+                                        -
+                                    </button>
+                                    <span className="px-2 text-xs text-slate-200 min-w-[52px] text-center">
+                                        {Math.round(modalScale * 100)}%
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setModalScale((prev) => Math.min(1.8, Number((prev + 0.1).toFixed(1))))}
+                                        className="px-2 py-1 text-sm hover:bg-white/20 rounded"
+                                        title="Zoom in document"
+                                    >
+                                        +
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setModalScale(1)}
+                                        className="ml-1 px-2 py-1 text-xs hover:bg-white/20 rounded"
+                                        title="Reset document zoom"
+                                    >
+                                        Reset
+                                    </button>
+                                </div>
+                                <a
+                                    href={selectedDocument.url || '#'}
+                                    download={selectedDocument.filename || `document_${selectedDocument.id}.docx`}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    <span>Download</span>
+                                </a>
                             </div>
                         </div>
-                        {selectedDocument.caption && (
-                            <p className="mt-2 text-sm text-gray-200 italic">{selectedDocument.caption}</p>
-                        )}
                     </div>
                     
-                    {/* Image */}
-                    <img
-                        src={selectedDocument.url || (selectedDocument.image_path ? `/storage/${selectedDocument.image_path}` : '')}
-                        alt={selectedDocument.caption || 'Project image'}
-                        className="w-full h-full object-contain rounded-lg mt-20"
-                    />
+                    {/* Document Preview */}
+                    <div className="flex-1 p-6 bg-slate-200/60 overflow-auto">
+                        <div className="mx-auto w-full max-w-none flex justify-center">
+                            {docxPreviewLoading ? (
+                                <div className="h-[500px] flex items-center justify-center text-slate-500">
+                                    Loading document preview...
+                                </div>
+                            ) : docxPreviewError ? (
+                                <div className="h-[500px] flex flex-col items-center justify-center text-center px-6">
+                                    <p className="text-red-600 font-medium">Could not preview this DOCX file.</p>
+                                    <p className="text-slate-500 mt-2">{docxPreviewError}</p>
+                                </div>
+                            ) : isDocxPreview && !useIframeFallback ? (
+                                <div
+                                    className="mx-auto"
+                                    style={{ zoom: modalScale }}
+                                >
+                                    <div
+                                        ref={docxContainerRef}
+                                        className="docx-preview-root"
+                                    />
+                                </div>
+                            ) : (
+                                <div
+                                    className="mx-auto bg-white shadow-xl border border-slate-300"
+                                    style={{
+                                        width: `${Math.round(794 * modalScale)}px`,
+                                        minHeight: `${Math.round(1123 * modalScale)}px`,
+                                    }}
+                                >
+                                    <iframe
+                                        src={selectedDocument.url || ''}
+                                        className="w-full"
+                                        style={{ height: `${Math.round(1123 * modalScale)}px` }}
+                                        title={`Preview of ${selectedDocument.filename || 'Document'}`}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-4 text-center text-sm text-slate-500">
+                            <p>Preview is shown in A4-like paper mode. Download if layout differs from Word.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         )}

@@ -12,6 +12,7 @@ use App\Http\Controllers\ImageController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DebugController;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -69,6 +70,12 @@ Route::middleware(['auth', 'session.activity'])->group(function () {
 
     // Gallery Routes
     Route::get('/gallery', [GalleryController::class, 'index'])->name('gallery.index');
+    Route::get('/document-preview', function (Request $request) {
+        return Inertia::render('DocumentPreview', [
+            'url' => $request->query('url'),
+            'filename' => $request->query('filename'),
+        ]);
+    })->name('documents.preview');
 
     // Archive Routes
     Route::get('/archive', [ArchiveController::class, 'index'])->name('archive.index');

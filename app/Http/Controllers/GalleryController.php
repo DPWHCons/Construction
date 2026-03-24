@@ -27,6 +27,8 @@ class GalleryController extends Controller
                             'id' => $image->id,
                             'url' => $image->url,
                             'image_path' => $image->image_path,
+                            'filename' => $image->filename,
+                            'document' => $image->document,
                             'caption' => $image->caption ?? null,
                             'created_at' => $image->created_at,
                         ];

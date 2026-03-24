@@ -24,7 +24,9 @@
     },
     "dependencies": {
         "@inertiajs/react": "^2.3.17",
+        "docx-preview": "^0.3.7",
         "framer-motion": "^12.38.0",
+        "mammoth": "^1.12.0",
         "react-dom": "^19.2.4",
         "react-hot-toast": "^2.6.0",
         "recharts": "^3.7.0",
