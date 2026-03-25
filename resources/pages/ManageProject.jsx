@@ -14,6 +14,7 @@ import useAutoRefresh from '@/Hooks/useAutoRefresh';
 export default function ManageProject({ projects, categories, availableLetters, availableYears = [], selectedYear: initialYear = 'all' }) {
     const urlParams = new URLSearchParams(window.location.search);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [selectedYear, setSelectedYear] = useState(initialYear);
     // const [yearRangeStart, setYearRangeStart] = useState(new Date().getFullYear() - 2); // Unused
@@ -31,8 +32,47 @@ export default function ManageProject({ projects, categories, availableLetters, 
     const [loading, setLoading] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [showDPWHLoading, setShowDPWHLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState({});
+    const [itemsPerPage] = useState(10);
 
     const [projectData, setProjectData] = useState(projects?.data || []);
+    const [allProjectData, setAllProjectData] = useState(projects?.data || []); // Store all data for client-side filtering
+
+    // Debounce search term to prevent excessive re-renders
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 300); // 300ms delay
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    // Client-side filtering based on search term and filters
+    useEffect(() => {
+        let filtered = [...allProjectData];
+
+        // Filter by search term
+        if (debouncedSearchTerm.trim()) {
+            const searchLower = debouncedSearchTerm.toLowerCase();
+            filtered = filtered.filter(project => 
+                (project.contract_id && project.contract_id.toLowerCase().includes(searchLower)) ||
+                (project.title && project.title.toLowerCase().includes(searchLower))
+            );
+        }
+
+        // Filter by status
+        if (filterStatus !== 'all') {
+            filtered = filtered.filter(project => project.status === filterStatus);
+        }
+
+        // Filter by year
+        if (selectedYear !== 'all') {
+            filtered = filtered.filter(project => project.project_year === selectedYear);
+        }
+
+        setProjectData(filtered);
+        setCurrentPage({}); // Reset pagination when filters change
+    }, [debouncedSearchTerm, filterStatus, selectedYear, allProjectData]);
 
     // Dynamic available years based on current project data (both original and newly added)
     const dynamicAvailableYears = useMemo(() => {
@@ -66,7 +106,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
     useEffect(() => {
         if (!projects?.data) return;
 
-        setProjectData(prev => {
+        setAllProjectData(prev => {
             const map = new Map(prev.map(p => [p.id, p]));
 
             projects.data.forEach(p => {
@@ -80,13 +120,86 @@ export default function ManageProject({ projects, categories, availableLetters, 
     // Sync selectedYear with backend props
     useEffect(() => {
         setSelectedYear(initialYear || 'all');
+        // Reset pagination when year changes
+        setCurrentPage({});
     }, [initialYear]);
+
+    // Reset pagination when search or filter changes
+    useEffect(() => {
+        setCurrentPage({});
+    }, [searchTerm, filterStatus]);
 
     // Helper function to extract last 3 digits from contract ID
     const getContractLast3 = (contractId) => {
         if (!contractId) return 0;
         const match = contractId.match(/(\d{3})$/);
         return match ? parseInt(match[1]) : 0;
+    };
+
+    // Pagination helper functions
+    const getTotalPages = (projectCount) => {
+        return Math.ceil(projectCount / itemsPerPage);
+    };
+
+    const getCurrentPageProjects = (projects, year) => {
+        const page = currentPage[year] || 1;
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return projects.slice(startIndex, endIndex);
+    };
+
+    const handlePageChange = (year, newPage) => {
+        setCurrentPage(prev => ({
+            ...prev,
+            [year]: newPage
+        }));
+    };
+
+    const renderPaginationControls = (year, totalProjects) => {
+        const totalPages = getTotalPages(totalProjects);
+        const current = currentPage[year] || 1;
+
+        if (totalPages <= 1) return null;
+
+        return (
+            <div className="flex items-center justify-center gap-2 mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <button
+                    onClick={() => handlePageChange(year, current - 1)}
+                    disabled={current === 1}
+                    className="px-3 py-1 text-sm bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    Previous
+                </button>
+                
+                <div className="flex gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                        <button
+                            key={pageNum}
+                            onClick={() => handlePageChange(year, pageNum)}
+                            className={`w-8 h-8 text-sm rounded-md transition-colors ${
+                                pageNum === current
+                                    ? 'bg-[#010066] text-white'
+                                    : 'bg-white border border-slate-300 hover:bg-slate-50'
+                            }`}
+                        >
+                            {pageNum}
+                        </button>
+                    ))}
+                </div>
+
+                <button
+                    onClick={() => handlePageChange(year, current + 1)}
+                    disabled={current === totalPages}
+                    className="px-3 py-1 text-sm bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    Next
+                </button>
+                
+                <span className="ml-4 text-xs text-slate-600">
+                    Showing {((current - 1) * itemsPerPage) + 1}-{Math.min(current * itemsPerPage, totalProjects)} of {totalProjects} projects
+                </span>
+            </div>
+        );
     };
 
     // Group projects by year and sort by contract ID last 3 digits
@@ -214,35 +327,15 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
     const handleFilterChange = useCallback((status) => {
         setFilterStatus(status);
-        stopAutoRefresh(); // Stop auto-refresh during filter
-        router.get(route('projects.index'), {
-            status: status === 'all' ? null : status,
-            search: searchTerm || null,
-            year: selectedYear === 'all' ? null : selectedYear
-        }, { preserveState: true, replace: true });
-    }, [filterStatus, selectedYear, searchTerm]);
+    }, []);
 
     const handleYearChange = useCallback((year) => {
         setSelectedYear(year);
-        stopAutoRefresh(); // Stop auto-refresh during year change
-        router.get(route('projects.index'), {
-            status: filterStatus === 'all' ? null : filterStatus,
-            search: searchTerm || null,
-            year: year === 'all' ? null : year
-        }, { preserveState: true, replace: true });
-    }, [filterStatus, selectedYear, searchTerm]);
+    }, []);
 
     const handleSearch = useCallback((term) => {
         setSearchTerm(term);
-        if (term.length >= 2 || term.length === 0) {
-            stopAutoRefresh(); // Stop auto-refresh during search
-            router.get(route('projects.index'), {
-                status: filterStatus === 'all' ? null : filterStatus,
-                search: term || null,
-                year: selectedYear === 'all' ? null : selectedYear
-            }, { preserveState: true, replace: true });
-        }
-    }, [filterStatus, selectedYear, searchTerm]);
+    }, []);
 
     const toggleYear = (year) => {
         if (animatingYears.has(year)) return;
@@ -334,7 +427,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
     const updateProjectData = (updatedProject) => {
         if (!updatedProject || !updatedProject.id) return;
         
-        setProjectData(prev =>
+        setAllProjectData(prev =>
             prev.map(p => p.id === updatedProject.id ? updatedProject : p)
         );
 
@@ -344,7 +437,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
     const addNewProject = (projectsData) => {
         if (!projectsData) return;
 
-        setProjectData(prev => {
+        setAllProjectData(prev => {
             const map = new Map(prev.map(p => [p.id, p]));
 
             if (Array.isArray(projectsData)) {
@@ -613,9 +706,9 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
                     <button
                         onClick={() => {
-                            handleSearch('');
-                            handleFilterChange('all');
-                            handleYearChange('all');
+                            setSearchTerm('');
+                            setFilterStatus('all');
+                            setSelectedYear('all');
                         }}
                         className="px-4 py-2 bg-[#Eb3505] text-white rounded-xl font-montserrat hover:bg-[#c42a03] transition"
                     >
@@ -682,9 +775,13 @@ export default function ManageProject({ projects, categories, availableLetters, 
                                                 );
                                             }
 
+                                            // Get paginated projects for this year
+                                            const displayYear = selectedYear === 'all' ? year : selectedYear;
+                                            const paginatedProjects = getCurrentPageProjects(projectsInYear, displayYear);
+
                                             return (
                                                 <div key={groupKey}>
-                                                    {projectsInYear.map((project, index) => {
+                                                    {paginatedProjects.map((project, index) => {
                                                         const contract = project.contracts?.[0] || {};
 
                                                         return (
@@ -738,6 +835,9 @@ export default function ManageProject({ projects, categories, availableLetters, 
                                                             </div>
                                                         );
                                                     })}
+                                                    
+                                                    {/* Add pagination controls for this year */}
+                                                    {renderPaginationControls(displayYear, projectsInYear.length)}
                                                 </div>
                                             );
                                         })}
@@ -747,79 +847,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
                         </div>
                     ))}
                 </div>
-
-                {/* Page Number Pagination - Only show when filtering by specific year */}
-                {selectedYear !== 'all' && projects?.data && projects.data.length > 0 && (
-                    <div className="flex justify-center mt-8 mb-6">
-                        <div className="flex items-center gap-2">
-                            {/* Previous Button */}
-                            <button
-                                onClick={() => {
-                                    if (projects.prev_page_url) {
-                                        router.get(projects.prev_page_url, {}, { 
-                                            preserveState: true, 
-                                            preserveScroll: true 
-                                        });
-                                    }
-                                }}
-                                disabled={!projects.prev_page_url || loading}
-                                className={`px-3 py-2 rounded-lg border transition font-montserrat text-sm font-medium ${
-                                    projects.prev_page_url && !loading
-                                        ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                                        : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                                }`}
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                                </svg>
-                            </button>
-
-                            {/* Page Numbers */}
-                            {Array.from({ length: projects.last_page || 1 }, (_, i) => i + 1).map(pageNum => (
-                                <button
-                                    key={pageNum}
-                                    onClick={() => {
-                                        const pageUrl = route('projects.index', { page: pageNum });
-                                        router.get(pageUrl, {}, { 
-                                            preserveState: true, 
-                                            preserveScroll: false 
-                                        });
-                                    }}
-                                    disabled={loading || pageNum === (projects.current_page || 1)}
-                                    className={`px-4 py-2 rounded-lg border transition font-montserrat text-sm font-medium ${
-                                        pageNum === (projects.current_page || 1)
-                                            ? "bg-[#Eb3505] text-white border-[#Eb3505]"
-                                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                                    } ${loading ? "cursor-not-allowed opacity-50" : ""}`}
-                                >
-                                    {pageNum}
-                                </button>
-                            ))}
-
-                            {/* Next Button */}
-                            <button
-                                onClick={() => {
-                                    if (projects.next_page_url) {
-                                        router.get(projects.next_page_url, {}, { 
-                                            preserveState: true, 
-                                            preserveScroll: true 
-                                        });
-                                    }
-                                }}
-                                disabled={!projects.next_page_url || loading}
-                                className={`px-3 py-2 rounded-lg border transition font-montserrat text-sm font-medium ${
-                                    projects.next_page_url && !loading
-                                        ? "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                                        : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                                }`}
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                )}
 
                 {/* Loading State */}
                 {loading && (
