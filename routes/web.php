@@ -19,7 +19,7 @@ use Inertia\Inertia;
 Route::get('/landing', [ProjectController::class, 'landing'])->name('landing');
 
 Route::get('/', function () {
-    return redirect()->route('login');
+    return redirect()->route('landing');
 });
 
 // Debug routes (temporary for debugging)
