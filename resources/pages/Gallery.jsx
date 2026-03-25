@@ -266,8 +266,21 @@ export default function Gallery({ projects }) {
     };
 
     const formatDocumentSize = (document) => {
-        if (!document?.document) return 'Unknown size';
-        return `${(document.document.length / (1024 * 1024)).toFixed(2)} MB`;
+        if (!document) return 'Unknown size';
+        
+        // Try different possible size properties
+        let size = null;
+        if (document.size) {
+            size = document.size;
+        } else if (document.file_size) {
+            size = document.file_size;
+        } else if (document.document && document.document.length) {
+            size = document.document.length;
+        }
+        
+        if (!size) return 'Unknown size';
+        
+        return `${(size / (1024 * 1024)).toFixed(1)} MB`;
     };
 
     const formatDocumentDate = (dateValue) => {
@@ -485,7 +498,15 @@ export default function Gallery({ projects }) {
                                                                                         });
                                                                                     }}
                                                                                 >
-
+                                                                                    {/* DOCS Indicator and Size */}
+                                                                                    <div className="absolute top-1 right-1 z-10 flex items-center space-x-1">
+                                                                                        <div className="bg-blue-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-medium">
+                                                                                            DOCS
+                                                                                        </div>
+                                                                                        <div className="bg-gray-700 text-black text-[8px] px-1.5 py-0.5 rounded-full font-medium">
+                                                                                            {formatDocumentSize(document)}
+                                                                                        </div>
+                                                                                    </div>
 
                                                                                     {/* Document Content */}
                                                                                     <div className="p-2 h-full flex flex-col justify-between pt-4">
