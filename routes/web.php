@@ -28,6 +28,7 @@ Route::post('/test-image-upload', [DebugController::class, 'testImageUpload']);
 Route::get('/test-upload', function () {
     return view('test_upload');
 });
+Route::get('/debug-dashboard', [App\Http\Controllers\DebugDashboardController::class, 'index']);
 
 // Image serving route (publicly accessible for display)
 Route::get('/images/{id}', [ImageController::class, 'show'])->name('images.show');
@@ -111,6 +112,9 @@ Route::middleware(['auth', 'session.activity'])->group(function () {
     
     // API Route for archiving images
     Route::post('/api/archive-images', [ProjectController::class, 'archiveImages'])->name('archive.images');
+    
+    // Project Images Archive Route (for ProjectGalleryModal)
+    Route::post('/project-images/archive', [ProjectController::class, 'archiveImages'])->name('project-images.archive');
 });
 
 require __DIR__.'/auth.php';

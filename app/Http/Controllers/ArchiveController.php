@@ -49,13 +49,14 @@ class ArchiveController extends Controller
         
         $archivedProjects = $projectsQuery->paginate(10);
         
-        // Format images for frontend
-        $formattedImages = collect($archivedImages->getCollection()->map(function ($image) {
+        // Format documents for frontend
+        $formattedDocuments = collect($archivedImages->getCollection()->map(function ($image) {
             return [
                 'id' => $image->id,
                 'url' => $image->url,
                 'image_path' => $image->image_path,
-                'caption' => $image->caption ?? 'Untitled Image',
+                'filename' => $image->filename ?? $image->caption ?? 'Untitled Document',
+                'caption' => $image->caption ?? $image->filename ?? 'Untitled Document',
                 'originalProject' => $image->project->title ?? 'Unknown Project',
                 'deletedDate' => $image->archived_at ? $image->archived_at->format('M j, Y') : 'N/A',
                 'deletionReason' => 'Manually archived',
@@ -94,7 +95,7 @@ class ArchiveController extends Controller
         $archivedContractors = $contractorsQuery->paginate(10);
         
         return Inertia::render('Archive', [
-            'archivedImages' => $formattedImages,
+            'archivedDocuments' => $formattedDocuments,
             'archivedProjects' => $archivedProjects,
             'archivedCategories' => $archivedCategories,
             'archivedContractors' => $archivedContractors,

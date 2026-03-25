@@ -43,11 +43,18 @@ class DashboardController extends Controller
         });
         
         // Get recent projects with caching (2 minutes for recent projects)
-        $recentProjects = Cache::remember('recent_projects', 120, function () {
-            return Project::with(['scope', 'progress', 'remarks'])
+        $recentProjectsCacheKey = "recent_projects_{$year}";
+        $recentProjects = Cache::remember($recentProjectsCacheKey, 120, function () use ($year) {
+            $query = Project::with(['scope', 'progress', 'remarks'])
                 ->orderBy('date_started', 'desc')
-                ->take(5)
-                ->get();
+                ->take(5);
+                
+            // Filter by year if specified and not 'all'
+            if ($year !== 'all') {
+                $query->where('project_year', $year);
+            }
+                
+            return $query->get();
         });
         
         // Monthly project counts with caching (10 minutes for monthly data)
@@ -104,11 +111,22 @@ class DashboardController extends Controller
             return $last12Months;
         });
 
+        // Get all available years from database with caching (30 minutes - doesn't change often)
+        $availableYears = Cache::remember('available_years', 1800, function () {
+            return Project::whereNotNull('project_year')
+                ->where('project_year', '!=', 'Unknown Year')
+                ->distinct()
+                ->pluck('project_year')
+                ->sortDesc()
+                ->values();
+        });
+
         return Inertia::render('Dashboard', [
             'stats' => $stats,
             'recentProjects' => $recentProjects,
             'monthlyData' => $last12Months,
             'selectedYear' => $year,
+            'availableYears' => $availableYears,
         ]);
     }
 }

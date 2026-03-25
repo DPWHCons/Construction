@@ -29,6 +29,18 @@ export default function PageLayout({ header, children }) {
     const user = usePage().props.auth.user;
     const url = usePage().props.url || '';
     
+    // Sidebar width configurations
+    const sidebarWidths = {
+        expanded: 'w-72', // 288px - wider for better content display
+        collapsed: 'w-20', // 80px - icon only
+    };
+    
+    // Corresponding margin values for main content
+    const contentMargins = {
+        expanded: 'lg:ml-72', // Match sidebar expanded width
+        collapsed: 'lg:ml-20', // Match sidebar collapsed width
+    };
+    
     // Initialize sidebar state from localStorage
     const [sidebarOpen, setSidebarOpen] = useState(() => {
         const saved = localStorage.getItem('sidebarOpen');
@@ -50,7 +62,7 @@ export default function PageLayout({ header, children }) {
             {/* Main Content Area */}
             <div className="flex pt-4">
                 {/* Modern White Sidebar */}
-                <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white transition-all duration-500 ease-in-out fixed left-0 top-0 bottom-0 z-40 shadow-lg border-r border-gray-200`}>
+                <aside className={`${sidebarOpen ? sidebarWidths.expanded : sidebarWidths.collapsed} bg-white transition-all duration-500 ease-in-out fixed left-0 top-0 bottom-0 z-40 shadow-lg border-r border-gray-200`}>
                     {/* Sidebar Header */}
                     <div className="p-4 border-b border-gray-100">
                         <div className="flex items-center justify-between">
@@ -79,12 +91,12 @@ export default function PageLayout({ header, children }) {
                     </div>
 
                     {/* Sidebar Navigation */}
-                    <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto">
+                    <nav className="flex-1 px-6 py-6 space-y-2 overflow-y-auto">
                         {/* Dashboard */}
                         <div>
                             <Link
                                 href={route('dashboard')}
-                                className={`group flex items-center ${sidebarOpen ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                                className={`group flex items-center ${sidebarOpen ? 'px-4' : 'justify-center'} py-3 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
                                     route().current('dashboard')
                                         ? 'bg-[#Eb3505] text-white shadow-md transform scale-105'
                                         : 'text-gray-600 hover:bg-[#Eb3505] hover:text-white hover:shadow-md hover:transform hover:scale-105'
@@ -202,7 +214,7 @@ export default function PageLayout({ header, children }) {
                             href={route('logout')}
                             method="post"
                             as="button"
-                            className={`w-full group flex items-center ${sidebarOpen ? 'px-3' : 'justify-center'} py-3 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden text-gray-600 hover:bg-red-500 hover:text-white hover:shadow-md hover:transform hover:scale-105 mt-3`}
+                            className={`w-full group flex items-center ${sidebarOpen ? 'px-4' : 'justify-center'} py-3 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden text-gray-600 hover:bg-red-500 hover:text-white hover:shadow-md hover:transform hover:scale-105 mt-3`}
                         >
                             <div className="absolute inset-0 bg-red-500 rounded-xl blur-sm opacity-0 group-hover:opacity-15 transition-opacity duration-300"></div>
                             <svg className={`relative w-4 h-4 ${sidebarOpen ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -216,7 +228,7 @@ export default function PageLayout({ header, children }) {
                 </aside>
 
                 {/* Main Content */}
-                <main className={`flex-1 transition-all duration-500 ease-in-out ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'} overflow-y-auto`}>
+                <main className={`flex-1 transition-all duration-500 ease-in-out ${sidebarOpen ? contentMargins.expanded : contentMargins.collapsed} overflow-y-auto`}>
                     {header && (
                         <div className="bg-white/60 backdrop-blur-sm border-b border-white/20 shadow-sm">
                             <div className="mx-auto max-w-7xl px-6 lg:px-8 py-4">

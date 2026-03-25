@@ -12,9 +12,9 @@ import RemarksSection from '@/Components/forms/RemarksSection';
 import FeedbackAlert from './FeedbackAlert';
 
 export default function CreateProjectModal({ show, onClose, categories = [], selectedYear, updateProjectData }) {
-    // Image state
-    const [images, setImages] = useState([]);
-    const [imagePreviews, setImagePreviews] = useState([]);
+    // Document state
+    const [documents, setDocuments] = useState([]);
+    const [documentPreviews, setDocumentPreviews] = useState([]);
 
     // Dynamic engineers state
     const [engineers, setEngineers] = useState([
@@ -79,7 +79,7 @@ export default function CreateProjectModal({ show, onClose, categories = [], sel
         assigned_engineer_4: '',
         engineer_title_4: '',
 
-        // Images
+        // Documents
         images: [],
     });
 
@@ -166,40 +166,44 @@ export default function CreateProjectModal({ show, onClose, categories = [], sel
                 assigned_engineer_4: '',
                 engineer_title_4: '',
 
-                // Images
+                // Documents
                 images: [],
             });
             
             // Clear other states
-            clearImages();
+            clearDocuments();
             setEngineers([{ name: '', titles: [''] }]);
         }
     }, [show, selectedYear]);
 
-    // Image handling functions
-    const handleImageChange = (e) => {
+    // Document handling functions
+    const handleDocumentChange = (e) => {
         const files = Array.from(e.target.files);
 
-        const newImages = [...images, ...files];
-        const newPreviews = [...imagePreviews, ...files.map(file => URL.createObjectURL(file))];
+        const newDocuments = [...documents, ...files];
+        const newPreviews = [...documentPreviews, ...files.map(file => ({
+            name: file.name,
+            size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+            type: file.type
+        }))];
 
-        setImages(newImages);
-        setImagePreviews(newPreviews);
-        setData('images', newImages);
+        setDocuments(newDocuments);
+        setDocumentPreviews(newPreviews);
+        setData('images', newDocuments);
     };
 
-    const removeImage = (index) => {
-        const newImages = images.filter((_, i) => i !== index);
-        const newPreviews = imagePreviews.filter((_, i) => i !== index);
+    const removeDocument = (index) => {
+        const newDocuments = documents.filter((_, i) => i !== index);
+        const newPreviews = documentPreviews.filter((_, i) => i !== index);
 
-        setImages(newImages);
-        setImagePreviews(newPreviews);
-        setData('images', newImages);
+        setDocuments(newDocuments);
+        setDocumentPreviews(newPreviews);
+        setData('images', newDocuments);
     };
 
-    const clearImages = () => {
-        setImages([]);
-        setImagePreviews([]);
+    const clearDocuments = () => {
+        setDocuments([]);
+        setDocumentPreviews([]);
         setData('images', []);
     };
 
@@ -297,7 +301,7 @@ export default function CreateProjectModal({ show, onClose, categories = [], sel
 
                     // Close modal immediately to show FeedbackAlert
                     reset();
-                    clearImages();
+                    clearDocuments();
                     setEngineers([{ name: '', titles: [''] }]);
                     onClose();
                 }, 2000); // Exactly 2 seconds of DPWHLoading
@@ -570,64 +574,66 @@ export default function CreateProjectModal({ show, onClose, categories = [], sel
                                         </div>
                                     </div>
 
-                                    {/* Project Images */}
+                                    {/* Project Documents */}
                                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                                        <h4 className="text-base font-semibold text-slate-800 font-montserrat mb-3">Project Images</h4>
+                                        <h4 className="text-base font-semibold text-slate-800 font-montserrat mb-3">Project Documents</h4>
 
-                                        {/* Image Upload Button */}
+                                        {/* Document Upload Button */}
                                         <div className="mb-4 flex justify-center">
                                             <label className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors">
                                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                                 </svg>
-                                                Add Images
+                                                Add Documents
                                                 <input
                                                     type="file"
                                                     multiple
-                                                    accept="image/*"
-                                                    onChange={handleImageChange}
+                                                    accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                                    onChange={handleDocumentChange}
                                                     className="hidden"
                                                 />
                                             </label>
                                         </div>
-                                        <p className="text-xs text-slate-500 mt-2">You can select multiple images at once</p>
+                                        <p className="text-xs text-slate-500 mt-2">You can select multiple Word documents (.doc, .docx)</p>
 
-                                        {/* Image Previews */}
-                                        {imagePreviews.length > 0 && (
+                                        {/* Document Previews */}
+                                        {documentPreviews.length > 0 && (
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-sm font-medium text-slate-700">
-                                                        {imagePreviews.length} {imagePreviews.length === 1 ? 'image' : 'images'} selected
+                                                        New Documents ({documentPreviews.length})
                                                     </p>
                                                     <button
                                                         type="button"
-                                                        onClick={clearImages}
+                                                        onClick={clearDocuments}
                                                         className="text-xs text-red-600 hover:text-red-800 transition-colors"
                                                     >
                                                         Clear All
                                                     </button>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                                    {imagePreviews.map((preview, index) => (
-                                                        <div key={index} className="relative group">
-                                                            <img
-                                                                src={preview}
-                                                                alt={`Preview ${index + 1}`}
-                                                                className="w-full h-24 object-cover rounded-lg border border-slate-200"
-                                                            />
+                                                <div className="space-y-2">
+                                                    {documentPreviews.map((preview, index) => (
+                                                        <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
+                                                            <div className="flex items-center space-x-3">
+                                                                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                </svg>
+                                                                <div>
+                                                                    <p className="text-sm font-medium text-slate-800">{preview.name}</p>
+                                                                    <p className="text-xs text-slate-500">{preview.size}</p>
+                                                                </div>
+                                                            </div>
                                                             <button
                                                                 type="button"
-                                                                onClick={() => removeImage(index)}
-                                                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                onClick={() => removeDocument(index)}
+                                                                className="text-red-500 hover:text-red-700 transition-colors"
+                                                                title="Remove document"
                                                             >
-                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                                 </svg>
                                                             </button>
-                                                            <div className="absolute bottom-1 left-1 bg-black/50 text-white text-xs px-1 py-0.5 rounded">
-                                                                {images[index]?.name || `Image ${index + 1}`}
-                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>

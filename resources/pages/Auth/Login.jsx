@@ -161,11 +161,12 @@ export default function Login({ status, canResetPassword }) {
                             type={showPassword ? 'text' : 'password'}
                             name="password"
                             value={data.password}
-                            className="w-full px-4 py-3 pr-12
+                            className="w-full px-4 py-3
             bg-white border border-neutral-200 
             rounded-lg text-neutral-900 
             focus:border-neutral-400 focus:ring-0 
             transition"
+                            style={{ paddingRight: '48px' }}
                             autoComplete="current-password"
                             onChange={(e) => {
                                 setData('password', e.target.value);
@@ -179,7 +180,8 @@ export default function Login({ status, canResetPassword }) {
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute top-2 right-1 flex items-center pr-3 text-neutral-400 hover:text-neutral-600 transition"                        >
+                            className="absolute top-1/2 right-0 transform -translate-y-1/2 flex items-center text-neutral-400 hover:text-neutral-600 transition"
+                            style={{marginRight: '12px'}}>
                             {showPassword ? (
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -245,6 +247,22 @@ export default function Login({ status, canResetPassword }) {
                 >
                     {processing ? 'Signing in...' : 'Sign In'}
                 </PrimaryButton>
+
+                {/* Browse Projects Link */}
+                <div className="mt-4 text-center">
+                    <Link
+                        href="/landing"
+                        className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors duration-200 group"
+                        onClick={(e) => {
+                            // Replace current history entry to prevent back button loop
+                            e.preventDefault();
+                            window.location.replace('/landing');
+                        }}
+                    >
+                        <span className="group-hover:translate-x-0.5 transition-transform duration-200">→</span>
+                        Browse DPWH Projects
+                    </Link>
+                </div>
 
             </form>
 

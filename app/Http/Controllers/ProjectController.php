@@ -27,7 +27,9 @@ class ProjectController extends Controller
             'progress',
             'remarks',
             'assignedEngineers',
-            'images',
+            'images' => function($query) {
+                $query->where('is_archived', false); // Only get non-archived images
+            },
             'category',
         ])->where('is_archive', false);
 
@@ -172,6 +174,11 @@ class ProjectController extends Controller
             $query->where('project_year', $request->year);
         }
 
+        // Filter by status
+        if ($request->status && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
         // Get all projects ordered by date started (newest first)
         $allProjects = $query->orderBy('date_started', 'desc')->get();
         
@@ -204,7 +211,7 @@ class ProjectController extends Controller
         return Inertia::render('LandingPage', [
             'projects' => $projects,
             'availableYears' => $availableYears,
-            'filters' => $request->only(['search', 'year'])
+            'filters' => $request->only(['search', 'year', 'status'])
         ]);
     }
 
@@ -1005,7 +1012,7 @@ class ProjectController extends Controller
      */
     public function archiveImages(Request $request)
     {
-        $imageIds = $request->input('imageIds', []);
+        $imageIds = $request->input('image_ids', []); // Changed from 'imageIds' to 'image_ids'
         
         // Update project_images to mark as archived
         ProjectImage::whereIn('id', $imageIds)->update([

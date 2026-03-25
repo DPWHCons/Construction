@@ -1,11 +1,14 @@
-import React, { useState, useMemo } from 'react';
-import { Head } from '@inertiajs/react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Head, router } from '@inertiajs/react';
+import ProjectDetailsModal from '../js/Components/ProjectDetailsModal';
+import LandingGalleryModal from './LandingGalleryModal';
 
-export default function LandingPage({ projects, availableYears = [] }) {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [year, setYear] = useState('all');
-    const [status, setStatus] = useState('all');
+export default function LandingPage({ projects, availableYears = [], filters = {} }) {
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const [year, setYear] = useState(filters.year || 'all');
+    const [status, setStatus] = useState(filters.status || 'all');
     const [selectedProject, setSelectedProject] = useState(null);
+    const [showImages, setShowImages] = useState(false);
 
     React.useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -16,10 +19,53 @@ export default function LandingPage({ projects, availableYears = [] }) {
         }
     }, []);
 
+    // Auto-refresh effect - fixed 30 second interval
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const params = {};
+            if (searchTerm) params.search = searchTerm;
+            if (year !== 'all') params.year = year;
+            if (status !== 'all') params.status = status;
+
+            router.get(
+                '/landing',
+                params,
+                {
+                    preserveScroll: true,
+                    preserveState: true
+                }
+            );
+        }, 30000); // Fixed 30 second interval
+
+        return () => clearInterval(interval);
+    }, [searchTerm, year, status]);
+
+    // Update filters and trigger refresh
+    const updateFilters = useCallback((newSearchTerm, newYear, newStatus) => {
+        setSearchTerm(newSearchTerm);
+        setYear(newYear);
+        setStatus(newStatus);
+        
+        // Immediate refresh when filters change
+        setTimeout(() => {
+            const params = {};
+            if (newSearchTerm) params.search = newSearchTerm;
+            if (newYear !== 'all') params.year = newYear;
+            if (newStatus !== 'all') params.status = newStatus;
+
+            router.get(
+                '/landing',
+                params,
+                {
+                    preserveScroll: true,
+                    preserveState: true
+                }
+            );
+        }, 300); // Small delay to prevent excessive requests
+    }, []);
+
     const clearFilters = () => {
-        setSearchTerm('');
-        setYear('all');
-        setStatus('all');
+        updateFilters('', 'all', 'all');
     };
 
     const filteredProjects = useMemo(() => {
@@ -81,30 +127,35 @@ export default function LandingPage({ projects, availableYears = [] }) {
 
             {/* 🔷 Modern Header */}
             <div className="bg-white/95 backdrop-blur-sm border-b border-gray-200/60 sticky top-0 z-40 shadow-sm">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <img 
-                                src="/images/DPWH Logo  - 17 Gears.png" 
-                                alt="DPWH Logo" 
-                                className="h-10 w-auto transition-transform hover:scale-105"
-                            />
+                <div className="max-w-7xl mx-auto px-6 py-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-4">
+                            <div className="relative">
+                                <img 
+                                    src="/images/DPWH Logo  - 17 Gears.png" 
+                                    alt="DPWH Logo" 
+                                    className="h-10 w-auto transition-transform hover:scale-105"
+                                />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+                                    DPWH Projects
+                                </h1>
+                                <p className="text-xs text-gray-500 font-medium">Infrastructure Management System</p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-                                DPWH Projects
-                            </h1>
-                            <p className="text-xs text-gray-500 font-medium">Infrastructure Management System</p>
+
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => {
+                                    window.location.replace('/login');
+                                }}
+                                className="px-4 py-2.5 bg-blue-600 border border-blue-700 rounded-xl text-sm font-medium text-white hover:bg-blue-700 hover:text-white transition-all duration-200 flex items-center gap-2"
+                            >
+                                Login
+                            </button>
                         </div>
                     </div>
-
-                    <button
-                        onClick={() => window.location.href = '/login'}
-                        className="px-4 py-2.5 bg-blue-600 border border-blue-700 rounded-xl text-sm font-medium text-white hover:bg-blue-700 hover:text-white transition-all duration-200 flex items-center gap-2"
-                    >
-                        Login
-                    </button>
                 </div>
             </div>
 
@@ -123,7 +174,7 @@ export default function LandingPage({ projects, availableYears = [] }) {
                                     type="text"
                                     placeholder="Search projects..."
                                     value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onChange={(e) => updateFilters(e.target.value, year, status)}
                                     style={{ width: '280px', paddingRight: '2.5rem' }}
                                     className="pl-4 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
                                 />
@@ -133,7 +184,7 @@ export default function LandingPage({ projects, availableYears = [] }) {
 
                             <select
                                 value={year}
-                                onChange={(e) => setYear(e.target.value)}
+                                onChange={(e) => updateFilters(searchTerm, e.target.value, status)}
                                 style={{ width: '140px' }}
                                 className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer"
                             >
@@ -147,7 +198,7 @@ export default function LandingPage({ projects, availableYears = [] }) {
 
                             <select
                                 value={status}
-                                onChange={(e) => setStatus(e.target.value)}
+                                onChange={(e) => updateFilters(searchTerm, year, e.target.value)}
                                 style={{ width: '140px' }}
                                 className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 appearance-none cursor-pointer"
                             >
@@ -233,117 +284,27 @@ export default function LandingPage({ projects, availableYears = [] }) {
                 )}
             </div>
 
-            {/* Project Modal */}
-            <ProjectModal 
-                project={selectedProject} 
-                onClose={() => setSelectedProject(null)} 
+            {/* Project Details Modal */}
+            <ProjectDetailsModal
+                show={selectedProject && !showImages}
+                project={selectedProject}
+                onClose={() => {
+                    setSelectedProject(null);
+                    setShowImages(false);
+                }}
+                onShowImages={() => setShowImages(true)}
             />
-        </div>
-    );
-}
 
-function Info({ label, value }) {
-    return (
-        <div className="flex flex-col">
-            <span className="text-xs text-gray-500">{label}</span>
-            <span className="text-gray-900 font-semibold">{value || '-'}</span>
-        </div>
-    );
-}
-
-function Section({ title, content }) {
-    return (
-        <div className="mb-6">
-            <h4 className="font-semibold text-gray-900 mb-2">{title}</h4>
-            <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700">
-                {content || 'No data available'}
-            </div>
-        </div>
-    );
-}
-
-// Simple Modal Component
-function ProjectModal({ project, onClose }) {
-    if (!project) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* Overlay */}
-            <div 
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm cursor-pointer"
-                onClick={onClose}
+            {/* Project Gallery Modal */}
+            <LandingGalleryModal
+                show={selectedProject && showImages}
+                project={selectedProject}
+                onClose={() => {
+                    setSelectedProject(null);
+                    setShowImages(false);
+                }}
+                onBackToDetails={() => setShowImages(false)}
             />
-            
-            {/* Modal */}
-            <div className="relative bg-white rounded-2xl shadow-2xl w-11/12 max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-bold text-white">Project Details</h2>
-                        <p className="text-blue-100 text-sm">
-                            {project?.category?.name || 'Uncategorized'}
-                        </p>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="text-white hover:bg-white/10 p-2 rounded-lg"
-                    >
-                        ✕
-                    </button>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto px-8 py-6">
-                    <div className="mb-6">
-                        <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                            {project?.title || 'No Title'}
-                        </h3>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            project?.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                            project?.status === 'ongoing' ? 'bg-green-100 text-green-700' :
-                            'bg-amber-100 text-amber-700'
-                        }`}>
-                            {project?.status?.charAt(0)?.toUpperCase() + project?.status?.slice(1) || 'Unknown'}
-                        </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-6 mb-6">
-                        <Info label="Contract ID" value={project?.contract_id} />
-                        <Info label="Project Year" value={project?.project_year} />
-                        <Info label="Project Cost" value={project?.project_cost ? `₱${project.project_cost.toLocaleString()}` : '-'} />
-                        <Info label="Start Date" value={project?.date_started} />
-                    </div>
-
-                    {project?.revised_project_cost && (
-                        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-amber-800">Revised Cost</span>
-                                <span className="text-sm font-bold text-amber-900">
-                                    ₱{project.revised_project_cost.toLocaleString()}
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
-                    <Section
-                        title="Scope of Work"
-                        content={project?.scope?.[0]?.scope_of_work_main || 'No scope information available'}
-                    />
-
-                    <Section
-                        title="Progress"
-                        content={project?.progress?.[0]?.target_actual ? 
-                            `Target: ${project.progress[0].target_actual}%` : 
-                            'No progress information available'
-                        }
-                    />
-
-                    <Section
-                        title="Remarks"
-                        content={project?.remarks?.[0]?.remarks || 'No remarks available'}
-                    />
-                </div>
-            </div>
         </div>
     );
 }

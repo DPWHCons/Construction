@@ -1,20 +1,17 @@
 import React, { useState } from 'react';
-import { showSuccessToast, showErrorToast } from '../Utils/alerts';
+import { showSuccessToast, showErrorToast } from '../js/Utils/alerts';
 import { Head, router } from '@inertiajs/react';
 
-export default function ProjectGalleryModal({ show, project, onClose, onBackToDetails }) {
+export default function LandingGalleryModal({ show, project, onClose, onBackToDetails }) {
     const [displayMode, setDisplayMode] = useState('grid'); // grid, list
-    const [selectedDocuments, setSelectedDocuments] = useState(new Set()); // Set of selected document indices
-    const [isSelectionMode, setIsSelectionMode] = useState(false); // For multi-select
     const [selectedDocument, setSelectedDocument] = useState(null); // For popup display
-    const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // For shift-click range selection
+
+    if (!show || !project) return null;
 
     const formatDocumentSize = (document) => {
         if (!document?.document) return 'Unknown size';
         return `${(document.document.length / (1024 * 1024)).toFixed(2)} MB`;
     };
-
-    if (!show || !project) return null;
 
     const GridIcon = () => (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -29,8 +26,6 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
     );
 
     const handleDocumentClick = (document) => {
-        if (isSelectionMode) return; // Don't show popup when in selection mode
-
         if (!document) return;
         if (!document.url) return;
 
@@ -40,24 +35,6 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
 
     const closeDocumentPopup = () => {
         setSelectedDocument(null);
-    };
-
-    const getDocumentType = (filename) => {
-        if (!filename) return 'Unknown';
-
-        const ext = filename.split('.').pop()?.toLowerCase();
-        const types = {
-            'pdf': 'PDF Document',
-            'doc': 'Word Document',
-            'docx': 'Word Document',
-            'xls': 'Excel Spreadsheet',
-            'xlsx': 'Excel Spreadsheet',
-            'ppt': 'PowerPoint Presentation',
-            'pptx': 'PowerPoint Presentation',
-            'txt': 'Text File'
-        };
-
-        return types[ext] || 'Document';
     };
 
     const navigateDocument = (direction) => {
@@ -98,83 +75,6 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
         setSelectedDocument(project.images[newIndex]);
     };
 
-    const handleDocumentSelect = (index, isShiftClick = false) => {
-        const newSelected = new Set(selectedDocuments);
-
-        if (isShiftClick && lastSelectedIndex !== null) {
-            // Select range between lastSelectedIndex and current index
-            const start = Math.min(lastSelectedIndex, index);
-            const end = Math.max(lastSelectedIndex, index);
-            for (let i = start; i <= end; i++) {
-                newSelected.add(i);
-            }
-        } else {
-            // Toggle selection for single document
-            if (newSelected.has(index)) {
-                newSelected.delete(index);
-            } else {
-                newSelected.add(index);
-            }
-        }
-
-        setSelectedDocuments(newSelected);
-        setLastSelectedIndex(index);
-    };
-
-    const handleSelectAll = () => {
-        if (selectedDocuments.size === project.images?.length) {
-            setSelectedDocuments(new Set()); // Deselect all
-        } else {
-            setSelectedDocuments(new Set(project.images?.map((_, index) => index))); // Select all
-        }
-    };
-
-    const handleDeleteDocuments = async () => {
-        if (selectedDocuments.size === 0) return;
-
-        // Get selected document IDs
-        const documentIds = Array.from(selectedDocuments).map(index => project.images[index]?.id).filter(id => id);
-
-        if (documentIds.length === 0) {
-            showErrorToast('No valid documents selected');
-            return;
-        }
-
-        if (!confirm(`Are you sure you want to archive ${documentIds.length} document(s)?`)) {
-            return;
-        }
-
-        try {
-            const response = await fetch('/project-images/archive', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-                },
-                body: JSON.stringify({ image_ids: documentIds })
-            });
-
-            if (response.ok) {
-                showSuccessToast(`${documentIds.length} document(s) archived successfully`);
-                setSelectedDocuments(new Set());
-                setIsSelectionMode(false);
-                router.reload();
-            } else {
-                const errorData = await response.text();
-                console.error('Archive failed:', response.status, errorData);
-                showErrorToast(`Failed to archive documents (${response.status})`);
-            }
-        } catch (error) {
-            console.error('Error archiving documents:', error);
-            showErrorToast('Error occurred while archiving documents');
-        }
-    };
-
-    const toggleSelectionMode = () => {
-        setIsSelectionMode(!isSelectionMode);
-        setSelectedDocuments(new Set()); // Clear selections when toggling
-    };
-
     return (
         <>
             <div
@@ -185,30 +85,14 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                     className="bg-white rounded-xl shadow-2xl w-[1200px] h-[600px] overflow-hidden border border-slate-200 transition-all duration-300 flex flex-col"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* 🔥 Header */}
-                    <div className="flex items-center justify-between 
+                    {/* Header */}
+                    <div className="flex items-center justify-center 
                     bg-white/80 backdrop-blur border-b border-gray-200 
                     text-gray-900 px-6 py-4 sticky top-0 z-20 border-b-2 border-gray-200 shadow-lg">
 
-                        <div className="flex items-center gap-3">
-                            <h3 className="text-xl font-bold text-gray-900">
-                                Project Gallery — {project.project_year || '-'}
-                            </h3>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={onBackToDetails}
-                                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md"
-                            >
-                                Project Details
-                            </button>
-                            <button
-                                onClick={onClose}
-                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md"
-                            >
-                                Close
-                            </button>
-                        </div>
+                        <h3 className="text-xl font-bold text-gray-900">
+                            Project Gallery — {project.project_year || '-'}
+                        </h3>
                     </div>
 
                     {/* Gallery Content */}
@@ -225,7 +109,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                                     </div>
                                 </div>
 
-                                {/* Right side: Display Mode Buttons + Selection Controls */}
+                                {/* Right side: Display Mode Buttons Only */}
                                 <div className="flex items-center gap-2">
                                     {/* Display Mode Buttons */}
                                     <div className="flex items-center gap-2">
@@ -244,33 +128,6 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                                             <ListIcon />
                                         </button>
                                     </div>
-
-                                    {/* Selection Controls */}
-                                    {isSelectionMode && (
-                                        <button
-                                            onClick={handleSelectAll}
-                                            className="px-3 py-1 bg-[#010066] text-white rounded-full text-xs font-montserrat hover:bg-[#010066]/80 transition-all"
-                                        >
-                                            {selectedDocuments.size === project.images?.length ? 'Deselect All' : 'Select All'}
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={toggleSelectionMode}
-                                        className={`px-3 py-1 rounded-full text-xs font-montserrat transition-all flex items-center gap-1 ${isSelectionMode
-                                                ? 'bg-red-500 text-white hover:bg-red-600'
-                                                : 'bg-red-500 text-white hover:bg-red-600'
-                                            }`}
-                                    >
-                                        {isSelectionMode ? 'Cancel Selection' : 'Delete Documents'}
-                                    </button>
-                                    {isSelectionMode && selectedDocuments.size > 0 && (
-                                        <button
-                                            onClick={handleDeleteDocuments}
-                                            className="px-3 py-1 bg-red-600 text-white rounded-full text-xs font-montserrat hover:bg-red-700 transition-all"
-                                        >
-                                            Archived Documents ({selectedDocuments.size})
-                                        </button>
-                                    )}
                                 </div>
                             </div>
 
@@ -283,15 +140,9 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                                             <div
                                                 key={index}
                                                 className={`relative group cursor-pointer ${displayMode === 'grid' ? 'w-52 h-26' : 'w-40 h-20'
-                                                    } ${selectedDocuments.has(index) ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-400 hover:shadow-lg hover:scale-[1.05] transition-all duration-300'
-                                                    } rounded-lg border-2 border-slate-200 overflow-hidden flex-shrink-0 text-left`}
-                                                onClick={(e) => {
-                                                    if (isSelectionMode) {
-                                                        handleDocumentSelect(index, e.shiftKey);
-                                                    } else {
-                                                        handleDocumentClick(document);
-                                                    }
-                                                }}
+                                                    } hover:border-blue-400 hover:shadow-lg hover:scale-[1.05] transition-all duration-300
+                                            rounded-lg border-2 border-slate-200 overflow-hidden flex-shrink-0 text-left`}
+                                                onClick={() => handleDocumentClick(document)}
                                             >
                                                 {/* Document Content */}
                                                 <div className="p-2 h-full flex flex-col justify-between pt-6">
@@ -327,19 +178,6 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                                                         <span className="text-xs font-medium">Preview Document</span>
                                                     </div>
                                                 </div>
-
-                                                {/* Selection Checkbox */}
-                                                {isSelectionMode && (
-                                                    <div className="absolute top-2 left-2">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedDocuments.has(index)}
-                                                            onChange={(e) => handleDocumentSelect(index, e.shiftKey)}
-                                                            className="w-5 h-5 text-red-600 rounded focus:ring-red-500"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        />
-                                                    </div>
-                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -377,7 +215,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
-                            navigateImage(1);
+                            navigateDocument(1);
                         }}
                         className="absolute right-8 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-all z-10"
                     >
@@ -390,7 +228,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
-                            closeImagePopup();
+                            closeDocumentPopup();
                         }}
                         className="absolute top-8 right-8 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-all z-10"
                     >

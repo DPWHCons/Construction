@@ -1,6 +1,6 @@
 import PageLayout from '@/Layouts/PageLayout';
 import { Head, router } from '@inertiajs/react';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { showErrorMessage, showSuccessMessage, showProjectArchiveConfirmation, showImportConfirmation } from '@/Utils/alerts';
 import CreateProjectModal from '@/Components/CreateProjectModal';
@@ -16,15 +16,15 @@ export default function ManageProject({ projects, categories, availableLetters, 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [selectedYear, setSelectedYear] = useState(initialYear);
-    const [yearRangeStart, setYearRangeStart] = useState(new Date().getFullYear() - 2);
+    // const [yearRangeStart, setYearRangeStart] = useState(new Date().getFullYear() - 2); // Unused
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingProject, setEditingProject] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);
     const [showImages, setShowImages] = useState(false);
     const [openCategories, setOpenCategories] = useState({});
-    const [categoryHeights, setCategoryHeights] = useState({});
-    const [animatingCategories, setAnimatingCategories] = useState(new Set());
+    // const [categoryHeights, setCategoryHeights] = useState({}); // Unused
+    // const [animatingCategories, setAnimatingCategories] = useState(new Set()); // Unused
     const [expandedYears, setExpandedYears] = useState(new Set()); // Track which years are expanded
     const [yearHeights, setYearHeights] = useState({});
     const [animatingYears, setAnimatingYears] = useState(new Set());
@@ -33,6 +33,12 @@ export default function ManageProject({ projects, categories, availableLetters, 
     const [showDPWHLoading, setShowDPWHLoading] = useState(false);
 
     const [projectData, setProjectData] = useState(projects?.data || []);
+
+    // Dynamic available years based on current project data (both original and newly added)
+    const dynamicAvailableYears = useMemo(() => {
+        return [...new Set(projectData.map(p => p.project_year).filter(Boolean))]
+            .sort((a, b) => b - a);
+    }, [projectData]);
 
     const { refresh, stopAutoRefresh, startAutoRefresh } = useAutoRefresh(30000, {
         preserveScroll: true,
@@ -58,15 +64,30 @@ export default function ManageProject({ projects, categories, availableLetters, 
     }, []);
 
     useEffect(() => {
-        if (projects && projects.data) {
-            setProjectData(projects.data);
-        }
+        if (!projects?.data) return;
+
+        setProjectData(prev => {
+            const map = new Map(prev.map(p => [p.id, p]));
+
+            projects.data.forEach(p => {
+                map.set(p.id, p); // update or insert
+            });
+
+            return Array.from(map.values());
+        });
     }, [projects]);
 
     // Sync selectedYear with backend props
     useEffect(() => {
         setSelectedYear(initialYear || 'all');
     }, [initialYear]);
+
+    // Helper function to extract last 3 digits from contract ID
+    const getContractLast3 = (contractId) => {
+        if (!contractId) return 0;
+        const match = contractId.match(/(\d{3})$/);
+        return match ? parseInt(match[1]) : 0;
+    };
 
     // Group projects by year and sort by contract ID last 3 digits
     const groupedProjects = useMemo(() => {
@@ -91,13 +112,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
         
         Object.entries(groupedProjects).forEach(([groupKey, group]) => {
             const sortedProjects = [...group.projects].sort((a, b) => {
-                // Extract last 3 digits from contract ID
-                const getContractLast3 = (contractId) => {
-                    if (!contractId) return 0;
-                    const match = contractId.match(/(\d{3})$/);
-                    return match ? parseInt(match[1]) : 0;
-                };
-                
                 const aLast3 = getContractLast3(a.contract_id);
                 const bLast3 = getContractLast3(b.contract_id);
                 
@@ -126,27 +140,15 @@ export default function ManageProject({ projects, categories, availableLetters, 
         return Object.fromEntries(entries);
     }, [sortedGroupedProjects, selectedYear]);
 
-    // Group by year for better organization
+    // Group by year for better organization - reuse sorted results
     const projectsByYear = useMemo(() => {
         if (selectedYear !== 'all') {
-            // When a specific year is selected, just return the grouped projects as-is
             return new Map([[selectedYear, Object.entries(finalGroupedProjects)]]);
         }
 
-        // When showing all years, use the sorted entries to preserve order
         const yearGroups = new Map();
-        
-        // Get sorted entries directly from the sorting logic
-        const entries = Object.entries(sortedGroupedProjects);
-        entries.sort(([, groupA], [, groupB]) => {
-            // Handle "Unknown Year" by putting it at the end
-            if (groupA.year === 'Unknown Year') return 1;
-            if (groupB.year === 'Unknown Year') return -1;
-            // Sort by year in descending order
-            return parseInt(groupB.year) - parseInt(groupA.year);
-        });
 
-        entries.forEach(([groupKey, group]) => {
+        Object.entries(finalGroupedProjects).forEach(([groupKey, group]) => {
             const { year } = group;
 
             if (!yearGroups.has(year)) {
@@ -155,9 +157,9 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
             yearGroups.get(year).push([groupKey, group]);
         });
-        
+
         return yearGroups;
-    }, [sortedGroupedProjects, selectedYear]);
+    }, [finalGroupedProjects, selectedYear]);
 
     useEffect(() => {
         setOpenCategories(prevOpen => {
@@ -210,7 +212,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
         setShowImages(false);
     };
 
-    const handleFilterChange = (status) => {
+    const handleFilterChange = useCallback((status) => {
         setFilterStatus(status);
         stopAutoRefresh(); // Stop auto-refresh during filter
         router.get(route('projects.index'), {
@@ -218,9 +220,9 @@ export default function ManageProject({ projects, categories, availableLetters, 
             search: searchTerm || null,
             year: selectedYear === 'all' ? null : selectedYear
         }, { preserveState: true, replace: true });
-    };
+    }, [filterStatus, selectedYear, searchTerm]);
 
-    const handleYearChange = (year) => {
+    const handleYearChange = useCallback((year) => {
         setSelectedYear(year);
         stopAutoRefresh(); // Stop auto-refresh during year change
         router.get(route('projects.index'), {
@@ -228,9 +230,9 @@ export default function ManageProject({ projects, categories, availableLetters, 
             search: searchTerm || null,
             year: year === 'all' ? null : year
         }, { preserveState: true, replace: true });
-    };
+    }, [filterStatus, selectedYear, searchTerm]);
 
-    const handleSearch = (term) => {
+    const handleSearch = useCallback((term) => {
         setSearchTerm(term);
         if (term.length >= 2 || term.length === 0) {
             stopAutoRefresh(); // Stop auto-refresh during search
@@ -240,9 +242,8 @@ export default function ManageProject({ projects, categories, availableLetters, 
                 year: selectedYear === 'all' ? null : selectedYear
             }, { preserveState: true, replace: true });
         }
-    };
+    }, [filterStatus, selectedYear, searchTerm]);
 
-    // Toggle year expansion/collapse with smooth animation and guardrail to prevent empty UI
     const toggleYear = (year) => {
         if (animatingYears.has(year)) return;
         
@@ -341,24 +342,19 @@ export default function ManageProject({ projects, categories, availableLetters, 
     };
 
     const addNewProject = (projectsData) => {
-        // Handle both single project object and array of projects
         if (!projectsData) return;
-        
-        if (Array.isArray(projectsData)) {
-            // If this looks like a complete server response (all projects), replace entirely
-            // Backend returns complete project list after creation to ensure consistency
-            setProjectData(projectsData);
-        } else if (projectsData.id) {
-            // Handle single project (backward compatibility)
-            setProjectData(prev => {
-                const existingProjectIds = new Set(prev.map(p => p.id));
-                if (existingProjectIds.has(projectsData.id)) {
-                    return prev.map(p => p.id === projectsData.id ? { ...p, ...projectsData } : p);
-                }
-                // Add new project at the beginning for newest-first ordering
-                return [projectsData, ...prev];
-            });
-        }
+
+        setProjectData(prev => {
+            const map = new Map(prev.map(p => [p.id, p]));
+
+            if (Array.isArray(projectsData)) {
+                projectsData.forEach(p => map.set(p.id, p));
+            } else if (projectsData.id) {
+                map.set(projectsData.id, projectsData);
+            }
+
+            return Array.from(map.values());
+        });
     };
 
 
@@ -607,7 +603,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
                    bg-white text-black hover:border-slate-300 transition"
                         >
                             <option value="all">All Years</option>
-                            {availableYears.map((year) => (
+                            {dynamicAvailableYears.map((year) => (
                                 <option key={year} value={year}>
                                     {year}
                                 </option>
@@ -629,7 +625,14 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
                 {/* Projects Grouped by Year */}
                 <div className="mt-8 space-y-4">
-                    {Array.from(projectsByYear.entries()).map(([year, yearData]) => (
+                    {Array.from(projectsByYear.entries())
+                        .sort(([yearA], [yearB]) => {
+                            // Sort years in descending order (recent first)
+                            if (yearA === 'Unknown Year') return 1;
+                            if (yearB === 'Unknown Year') return -1;
+                            return parseInt(yearB) - parseInt(yearA);
+                        })
+                        .map(([year, yearData]) => (
                         <div key={year} className="space-y-1">
                             {/* Year Display - Full Width Flat Header */}
                             {selectedYear === 'all' && year && (
@@ -854,7 +857,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
                     categories={categories || []}
                     selectedYear={selectedYear}
                     updateProjectData={addNewProject}
-                    availableYears={projects?.data && Array.from(new Set(projects.data.map(p => p.project_year).filter(Boolean))) || []}
+                    availableYears={dynamicAvailableYears}
                 />
 
                 {/* Edit Project Modal */}
@@ -864,7 +867,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
                     project={editingProject}
                     categories={categories || []}
                     updateProjectData={updateProjectData}
-                    availableYears={projects?.data && Array.from(new Set(projects.data.map(p => p.project_year).filter(Boolean))) || []}
+                    availableYears={dynamicAvailableYears}
                 />
 
                 {/* Project Details Modal - Separate Component */}

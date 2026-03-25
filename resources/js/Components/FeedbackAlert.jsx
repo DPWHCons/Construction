@@ -57,13 +57,13 @@ const FeedbackAlert = ({
       },
       showClass: { 
         popup: isModal ? 'animate-fade-in-up' : 'animate-slide-in-right',
-        backdrop: 'swal2-backdrop-show'
+        ...(isModal && { backdrop: 'swal2-backdrop-show' })
       },
       hideClass: { 
         popup: isModal ? 'animate-fade-out-down' : 'animate-slide-out-right',
-        backdrop: 'swal2-backdrop-hide'
+        ...(isModal && { backdrop: 'swal2-backdrop-hide' })
       },
-      backdrop: isModal ? 'rgba(0, 0, 0, 0.5)' : undefined,
+      ...(isModal && { backdrop: 'rgba(0, 0, 0, 0.5)' }),
     };
 
     if (html) {

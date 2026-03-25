@@ -10,9 +10,17 @@ class GalleryController extends Controller
 {
     public function index()
     {
-        // Get all projects with their images for the gallery
-        $projects = Project::with('images')
-            ->whereHas('images') // Only get projects that have images
+        // Get all projects with their images for the gallery (only non-archived)
+        $projects = Project::with([
+            'images' => function($query) {
+                $query->where('is_archived', false); // Only get non-archived images
+            }, 
+            'category', 
+            'scope'
+        ])
+            ->whereHas('images', function($query) {
+                $query->where('is_archived', false); // Only projects with non-archived images
+            })
             ->orderBy('updated_at', 'desc')
             ->get()
             ->map(function ($project) {
@@ -22,6 +30,9 @@ class GalleryController extends Controller
                     'category' => $project->category,
                     'status' => $project->status,
                     'project_year' => $project->project_year,
+                    'contract_id' => $project->contract_id,
+                    'project_id' => $project->project_id,
+                    'scope' => $project->scope,
                     'images' => $project->images->map(function ($image) {
                         return [
                             'id' => $image->id,

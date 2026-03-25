@@ -6,10 +6,10 @@ import { router } from '@inertiajs/react';
 import { showRestoreConfirmation, showDeleteConfirmation, showSuccessToast, showErrorToast, showInfoToast } from '@/Utils/alerts';
 import DPWHLoading from '@/Components/DPWHLoading';
 
-export default function Archive({ archivedImages }) {
+export default function Archive({ archivedDocuments }) {
     const { archivedProjects, archivedCategories, archivedContractors } = usePage().props;
     const page = usePage();
-    const [activeTab, setActiveTab] = useState('images');
+    const [activeTab, setActiveTab] = useState('documents');
     const [selectedImage, setSelectedImage] = useState(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [expandedProjects, setExpandedProjects] = useState(new Set());
@@ -57,7 +57,11 @@ export default function Archive({ archivedImages }) {
     };
 
     const getAllArchivedImages = () => {
-        return Object.values(filteredGroups).flatMap(group => group.images);
+        const images = archivedDocuments && archivedDocuments.data ? archivedDocuments.data : 
+                       archivedDocuments && Array.isArray(archivedDocuments) ? archivedDocuments :
+                       archivedDocuments && typeof archivedDocuments.toArray === 'function' ? archivedDocuments.toArray() :
+                       [];
+        return Array.isArray(images) ? images : [];
     };
 
     const getTotalArchivedImagesCount = () => {
@@ -197,9 +201,9 @@ export default function Archive({ archivedImages }) {
     // Group archived images by year and project
     const groupedArchivedImages = useMemo(() => {
         // Handle both Laravel Collections and regular arrays
-        const images = archivedImages && archivedImages.data ? archivedImages.data : 
-                       archivedImages && Array.isArray(archivedImages) ? archivedImages :
-                       archivedImages && typeof archivedImages.toArray === 'function' ? archivedImages.toArray() :
+        const images = archivedDocuments && archivedDocuments.data ? archivedDocuments.data : 
+                       archivedDocuments && Array.isArray(archivedDocuments) ? archivedDocuments :
+                       archivedDocuments && typeof archivedDocuments.toArray === 'function' ? archivedDocuments.toArray() :
                        [];
         return images.reduce((groups, image) => {
             const year = getArchiveYear(image) || 'Unknown Year';
@@ -210,22 +214,22 @@ export default function Archive({ archivedImages }) {
             groups[groupKey].images.push(image);
             return groups;
         }, {});
-    }, [archivedImages]);
+    }, [archivedDocuments]);
 
     // Get unique projects for filter
     const uniqueProjects = useMemo(() => {
-        const images = archivedImages && archivedImages.data ? archivedImages.data : 
-                       archivedImages && Array.isArray(archivedImages) ? archivedImages :
-                       archivedImages && typeof archivedImages.toArray === 'function' ? archivedImages.toArray() :
+        const images = archivedDocuments && archivedDocuments.data ? archivedDocuments.data : 
+                       archivedDocuments && Array.isArray(archivedDocuments) ? archivedDocuments :
+                       archivedDocuments && typeof archivedDocuments.toArray === 'function' ? archivedDocuments.toArray() :
                        [];
         return ['all', ...new Set(images.map(img => img.originalProject))];
-    }, [archivedImages]);
+    }, [archivedDocuments]);
 
     // Get available years for filter
     const getAvailableYears = () => {
-        const images = archivedImages && archivedImages.data ? archivedImages.data : 
-                       archivedImages && Array.isArray(archivedImages) ? archivedImages :
-                       archivedImages && typeof archivedImages.toArray === 'function' ? archivedImages.toArray() :
+        const images = archivedDocuments && archivedDocuments.data ? archivedDocuments.data : 
+                       archivedDocuments && Array.isArray(archivedDocuments) ? archivedDocuments :
+                       archivedDocuments && typeof archivedDocuments.toArray === 'function' ? archivedDocuments.toArray() :
                        [];
         const years = new Set();
         images.forEach(image => {
@@ -349,12 +353,12 @@ export default function Archive({ archivedImages }) {
         setIsLoading(true);
         
         try {
-            const result = await showRestoreConfirmation(image.caption || 'Image');
+            const result = await showRestoreConfirmation(image.filename || 'Document');
             
             if (result.isConfirmed) {
                 router.post(route('archive.images.restore', image.id), {}, {
                     onSuccess: (page) => {
-                        showSuccessToast(`Image "${image.caption || 'Untitled'}" restored successfully!`);
+                        showSuccessToast(`Document "${image.filename || 'Untitled'}" restored successfully!`);
                         window.location.reload();
                     },
                     onError: (errors) => {
@@ -378,12 +382,12 @@ export default function Archive({ archivedImages }) {
         setIsLoading(true);
         
         try {
-            const result = await showDeleteConfirmation(image.caption || 'Image', 'image');
+            const result = await showDeleteConfirmation(image.filename || 'Document', 'document');
             
             if (result.isConfirmed) {
                 router.delete(route('archive.images.delete', image.id), {}, {
                     onSuccess: (page) => {
-                        showSuccessToast(`Image "${image.caption || 'Untitled'}" permanently deleted!`);
+                        showSuccessToast(`Document "${image.filename || 'Untitled'}" permanently deleted!`);
                         window.location.reload();
                     },
                     onError: (errors) => {
@@ -1269,7 +1273,7 @@ export default function Archive({ archivedImages }) {
                 <div className="sticky top-0 z-30">
                     <div className="max-w-7xl mx-auto px-6 py-4">
                         <div className="flex gap-2">
-                            {['images', 'projects', 'categories', 'contractors'].map((tab) => (
+                            {['documents', 'projects', 'categories', 'contractors'].map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -1279,7 +1283,7 @@ export default function Archive({ archivedImages }) {
                                             : 'bg-gray-100 text-[#010066] hover:bg-gray-200'
                                     }`}
                                 >
-                                    {tab === 'images' ? 'Archived Images' : tab === 'projects' ? 'Archived Projects' : tab === 'categories' ? 'Archived Categories' : 'Archived Contractors'}
+                                    {tab === 'documents' ? 'Archived Documents' : tab === 'projects' ? 'Archived Projects' : tab === 'categories' ? 'Archived Categories' : 'Archived Contractors'}
                                 </button>
                             ))}
                         </div>
@@ -1287,7 +1291,7 @@ export default function Archive({ archivedImages }) {
                 </div>
 
                 {/* Content based on active tab */}
-                {activeTab === 'images' ? (
+                {activeTab === 'documents' ? (
                     /* Images Content */
                     <div>
                         {/* Filters */}
@@ -1298,7 +1302,7 @@ export default function Archive({ archivedImages }) {
                                     <div className="relative">
                                         <input
                                             type="text"
-                                            placeholder="Search archived photos..."
+                                            placeholder="Search archived documents..."
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                             className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent"
@@ -1395,7 +1399,7 @@ export default function Archive({ archivedImages }) {
                                                                         Archived
                                                                     </span>
                                                                     <span className="text-sm text-slate-500 font-medium">
-                                                                        {images.length} {images.length === 1 ? 'photo' : 'photos'}
+                                                                        {images.length} {images.length === 1 ? 'document' : 'documents'}
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -1589,7 +1593,7 @@ export default function Archive({ archivedImages }) {
                                                                             )}
                                                                             <img
                                                                                 src={image.url}
-                                                                                alt={image.caption || `Archived image ${imageIndex + 1}`}
+                                                                                alt={image.filename || `Archived document ${imageIndex + 1}`}
                                                                                 className="w-full h-full object-cover"
                                                                                 loading="lazy"
                                                                                 width="96"
@@ -1853,7 +1857,7 @@ export default function Archive({ archivedImages }) {
                         
                         <img
                             src={selectedImage.url}
-                            alt={selectedImage.caption || 'Archived image'}
+                            alt={selectedImage.filename || 'Archived document'}
                             className="w-full h-full object-contain rounded-lg cursor-pointer"
                             onClick={() => isModalSelectionMode ? handleModalImageSelect(currentImageIndex) : null}
                         />
