@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
+import UserGuide from '@/Components/UserGuide';
 
 export default function GuestLayout({ children }) {
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -81,7 +82,15 @@ export default function GuestLayout({ children }) {
                             {/* Footer */}
                             <div className="mt-6 pt-4 border-t border-neutral-200 text-center">
                                 <p className="text-xs text-neutral-400">
-                                    © Design and Developed by Nexio Devs
+                                    © Design and Developed by{' '}
+                                    <a 
+                                        href="https://www.facebook.com/profile.php?id=61579438695370" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-500 hover:text-blue-600 transition-colors"
+                                    >
+                                        Nexio Devs
+                                    </a>
                                 </p>
                             </div>
                         </div>
@@ -89,6 +98,9 @@ export default function GuestLayout({ children }) {
                     </div>
                 </div>
             </div>
+            
+            {/* User Guide */}
+            <UserGuide />
         </div>
     );
 }

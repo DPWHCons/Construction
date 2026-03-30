@@ -1,8 +1,9 @@
 import PageLayout from '@/Layouts/PageLayout';
 import { Head } from '@inertiajs/react';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import useAutoRefresh from '@/Hooks/useAutoRefresh';
 import { renderAsync } from 'docx-preview';
+import GalleryModal from '../js/Components/GalleryModal';
 
 export default function Gallery({ projects }) {
     const [selectedDocument, setSelectedDocument] = useState(null);
@@ -19,7 +20,23 @@ export default function Gallery({ projects }) {
     const [selectedYear, setSelectedYear] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedProjects, setExpandedProjects] = useState(new Set());
-    const [expandedYears, setExpandedYears] = useState(new Set());
+    const [expandedYears, setExpandedYears] = useState(() => {
+        // Get most recent year from projects and set it as default expanded
+        if (projects.length > 0) {
+            const years = [...new Set(projects.map(p => {
+                const year = p.project_year;
+                return year && year !== 'Unknown Year' ? String(year) : null;
+            }).filter(Boolean))];
+            
+            if (years.length > 0) {
+                years.sort((a, b) => parseInt(b) - parseInt(a)); // Sort descending
+                return new Set([years[0]]); // Expand most recent year
+            }
+        }
+        return new Set();
+    });
+    const [showProjectGalleryModal, setShowProjectGalleryModal] = useState(false);
+    const [selectedProjectForModal, setSelectedProjectForModal] = useState(null);
 
     // Auto-refresh gallery data every 30 seconds
     useAutoRefresh(30000, {
@@ -86,13 +103,12 @@ export default function Gallery({ projects }) {
 
     const toggleYearExpansion = (year) => {
         setExpandedYears(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(year)) {
-                newSet.delete(year);
-            } else {
-                newSet.add(year);
+            // If the clicked year is already expanded, close it
+            if (prev.has(year)) {
+                return new Set();
             }
-            return newSet;
+            // Otherwise, close all others and only expand the clicked year
+            return new Set([year]);
         });
     };
 
@@ -265,6 +281,16 @@ export default function Gallery({ projects }) {
         setSelectedYear('all');
     };
 
+    const openGalleryModal = (project) => {
+        setSelectedProjectForModal(project);
+        setShowProjectGalleryModal(true);
+    };
+
+    const closeGalleryModal = () => {
+        setShowProjectGalleryModal(false);
+        setSelectedProjectForModal(null);
+    };
+
     const formatDocumentSize = (document) => {
         if (!document) return 'Unknown size';
         
@@ -288,15 +314,34 @@ export default function Gallery({ projects }) {
         return new Date(dateValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
-    // Group projects by year for transparency - same as ManageProject
+    // Group projects by year and sort in descending order (same as ManageProject)
     const groupedProjects = useMemo(() => {
-        return projects.reduce((groups, project) => {
+        const groups = projects.reduce((groups, project) => {
             const year = getProjectYear(project) || 'Unknown Year';
 
             if (!groups[year]) groups[year] = { year, projects: [] };
             groups[year].projects.push(project);
             return groups;
         }, {});
+
+        // Sort years in descending order (most recent first)
+        const entries = Object.entries(groups);
+        entries.sort(([, groupA], [, groupB]) => {
+            if (groupA.year === 'Unknown Year') return 1;
+            if (groupB.year === 'Unknown Year') return -1;
+            
+            const yearA = parseInt(groupA.year);
+            const yearB = parseInt(groupB.year);
+            
+            // Ensure valid numbers before comparison
+            if (isNaN(yearA) || isNaN(yearB)) {
+                return 0;
+            }
+            
+            return yearB - yearA; // Descending order (larger year first)
+        });
+
+        return Object.fromEntries(entries);
     }, [projects]);
 
     return (
@@ -381,7 +426,57 @@ export default function Gallery({ projects }) {
                         <>
                             {viewMode === 'grid' ? (
                                 /* Grid View - Grouped by Year and Category */
-                                <div className="space-y-12">
+                                <div className="space-y-8">
+                                    {/* Year Pills Header */}
+                                    <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-200">
+                                        {Object.entries(groupedProjects)
+                                            .filter(([groupKey, group]) => {
+                                                const { year, projects: projectsInGroup } = group;
+                                                const filteredProjectsInGroup = projectsInGroup.filter(project => {
+                                                    if (selectedProject !== 'all' && project.title !== selectedProject) return false;
+                                                    if (selectedYear !== 'all' && String(getProjectYear(project)) !== String(selectedYear)) return false;
+                                                    return project.images.some(img =>
+                                                        !searchTerm ||
+                                                        project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                        img.caption?.toLowerCase().includes(searchTerm.toLowerCase())
+                                                    );
+                                                });
+                                                
+                                                // Debug logging
+                                                console.log(`Year ${year}:`, {
+                                                    totalProjects: projectsInGroup.length,
+                                                    filteredProjects: filteredProjectsInGroup.length,
+                                                    shouldShow: year !== 'Unknown Year' && filteredProjectsInGroup.length > 0
+                                                });
+                                                
+                                                return year !== 'Unknown Year' && filteredProjectsInGroup.length > 0;
+                                            })
+                                            // Ensure descending order is maintained after filtering
+                                            .sort(([, groupA], [, groupB]) => {
+                                                const yearA = parseInt(groupA.year);
+                                                const yearB = parseInt(groupB.year);
+                                                if (isNaN(yearA) || isNaN(yearB)) return 0;
+                                                return yearB - yearA; // Descending order
+                                            })
+                                            .map(([groupKey, group]) => {
+                                                const { year } = group;
+                                                return (
+                                                    <button
+                                                        key={year}
+                                                        onClick={() => toggleYearExpansion(year)}
+                                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-montserrat font-medium text-sm shadow-sm hover:shadow-md ${
+                                                            expandedYears.has(String(year))
+                                                                ? 'bg-[#Eb3505] text-white'
+                                                                : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        <span>{year}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                    </div>
+
+                                    {/* Year Content Sections */}
                                     {Object.entries(groupedProjects).map(([groupKey, group]) => {
                                         const { year, categoryName, projects: projectsInGroup } = group;
 
@@ -396,157 +491,110 @@ export default function Gallery({ projects }) {
                                             );
                                         });
 
-                                        if (filteredProjectsInGroup.length === 0) return null;
+                                        if (filteredProjectsInGroup.length === 0 || year === 'Unknown Year') return null;
 
                                         return (
                                             <div key={groupKey} className="space-y-0">
-                                                {/* Year Display - Full Width Flat Header (only show if not Unknown Year) */}
-                                                {year !== 'Unknown Year' && (
-                                                    <div
-                                                        onClick={() => toggleYearExpansion(year)}
-                                                        className="w-full bg-[#010066] rounded-lg px-4 py-3 cursor-pointer hover:bg-[#020077] transition-colors flex items-center justify-between"
-                                                    >
-                                                        <h3 className="text-sm font-bold text-white font-montserrat">
-                                                            {year}
-                                                        </h3>
-                                                        <svg
-                                                            className={`w-5 h-  5 text-white transform transition-transform duration-300 ${expandedYears.has(year) ? 'rotate-180' : ''}`}
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                                        </svg>
-                                                    </div>
-                                                )}
-
                                                 {/* Projects for this year - Collapsible */}
                                                 <div
                                                     className="transition-all duration-300 overflow-hidden"
                                                     style={{
-                                                        maxHeight: expandedYears.has(year) ? '2000px' : '0px',
-                                                        opacity: expandedYears.has(year) ? 1 : 0
+                                                        maxHeight: expandedYears.has(String(year)) ? '2000px' : '0px',
+                                                        opacity: expandedYears.has(String(year)) ? 1 : 0
                                                     }}
                                                 >
-                                                    {filteredProjectsInGroup.map((project) => {
-                                                        const projectImages = project.images.filter(img =>
-                                                            !searchTerm ||
-                                                            project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                                            img.caption?.toLowerCase().includes(searchTerm.toLowerCase())
-                                                        );
+                                                    {/* Table for Projects and Documents */}
+                                                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                                        <table className="w-full">
+                                                            <thead className="bg-slate-50 border-b border-slate-200">
+                                                                <tr>
+                                                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Contract ID</th>
+                                                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Documents</th>
+                                                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Actions</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-slate-200">
+                                                                {filteredProjectsInGroup.map((project) => {
+                                                                    const projectImages = project.images.filter(img =>
+                                                                        !searchTerm ||
+                                                                        project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                                        img.caption?.toLowerCase().includes(searchTerm.toLowerCase())
+                                                                    );
 
-                                                        if (projectImages.length === 0) return null;
+                                                                    if (projectImages.length === 0) return null;
 
-                                                        return (
-                                                            <div key={project.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                                                                {/* Project Header */}
-                                                                <div
-                                                                    onClick={() => toggleProjectExpansion(project.id)}
-                                                                    className="bg-gradient-to-r from-slate-50 to-slate-100 px-6 py-4 border-b border-slate-200 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200"
-                                                                >
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="flex-1">
-                                                                            <div className="flex items-center gap-3 mb-1">
-                                                                                <span className="text-sm font-medium text-slate-600">{project.contract_id || '-'}</span>
-                                                                                <span className="text-xs px-2 py-1 rounded-full text-slate-600">
-                                                                                    {project.category?.name || 'Uncategorized'}
-                                                                                </span>
-                                                                                <span className="text-xs text-slate-500 font-medium">
-                                                                                    {projectImages.length} {projectImages.length === 1 ? 'document' : 'documents'}
-                                                                                </span>
-                                                                            </div>
-                                                                            <h3 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-2">
-                                                                                {project.title}
-                                                                            </h3>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <button
-                                                                                onClick={() => toggleProjectExpansion(project.id)}
-                                                                                className="cursor-pointer hover:text-slate-600 transition-colors"
+                                                                    return (
+                                                                        <React.Fragment key={project.id}>
+                                                                            <tr 
+                                                                                className="hover:bg-slate-50 cursor-pointer"
+                                                                                onClick={() => openGalleryModal(project)}
                                                                             >
-                                                                                <svg
-                                                                                    className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${expandedProjects.has(project.id) ? 'rotate-180' : ''
-                                                                                        }`}
-                                                                                    fill="none"
-                                                                                    stroke="currentColor"
-                                                                                    viewBox="0 0 24 24"
-                                                                                >
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                                                                </svg>
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Images Grid */}
-                                                                <div
-                                                                    className="transition-max-height border border-slate-200 rounded-xl shadow-sm overflow-hidden"
-                                                                    style={{ maxHeight: expandedProjects.has(project.id) ? '1000px' : '0px' }}
-                                                                >
-                                                                    <div className="p-3">
-                                                                        <div className="flex flex-wrap gap-4">
-                                                                            {projectImages.map((document, documentIndex) => (
-                                                                                <button
-                                                                                    key={document.id}
-                                                                                    type="button"
-                                                                                    className="group relative w-28 h-20 overflow-hidden rounded-lg cursor-pointer bg-white border border-slate-200 hover:shadow-lg hover:scale-[1.05] transition-all duration-300 flex-shrink-0 text-left"
-                                                                                    onClick={() => {
-                                                                                        openImageModal({
-                                                                                            ...document,
-                                                                                            projectTitle: project.title,
-                                                                                            projectIndex: allImages.find(doc => doc.id === document.id && doc.projectTitle === project.title)?.projectIndex ?? 0,
-                                                                                        });
-                                                                                    }}
-                                                                                >
-                                                                                    {/* DOCS Indicator and Size */}
-                                                                                    <div className="absolute top-1 right-1 z-10 flex items-center space-x-1">
-                                                                                        <div className="bg-blue-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-medium">
-                                                                                            DOCS
-                                                                                        </div>
-                                                                                        <div className="bg-gray-700 text-black text-[8px] px-1.5 py-0.5 rounded-full font-medium">
-                                                                                            {formatDocumentSize(document)}
-                                                                                        </div>
-                                                                                    </div>
-
-                                                                                    {/* Document Content */}
-                                                                                    <div className="p-2 h-full flex flex-col justify-between pt-4">
-                                                                                        <div className="flex justify-center mb-2">
-                                                                                            <a
-                                                                                                href={document.url || '#'}
-                                                                                                download={document.filename || `document_${document.id}.docx`}
-                                                                                                className="hover:bg-blue-200 text-blue-600 hover:text-blue-800 transition-all duration-200 p-2 rounded-full relative z-10 shadow-sm hover:shadow-md"
-                                                                                                onClick={(e) => e.stopPropagation()}
-                                                                                                title="Download document"
-                                                                                            >
-                                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                                                                </svg>
-                                                                                            </a>
-                                                                                        </div>
-                                                                                        <div className="text-center">
-                                                                                            <p className="text-xs font-semibold text-black truncate leading-tight mb-1" title={document.filename || `Document ID: ${document.id}`}>
-                                                                                                {document.filename || `Document_${document.id}`}
-                                                                                            </p>
-                                                                                            <p className="text-[8px] text-slate-500 font-medium">
-                                                                                                {formatDocumentSize(document)}
-                                                                                            </p>
+                                                                                <td className="px-4 py-3 text-sm text-slate-900">{project.contract_id || '-'}</td>
+                                                                                <td className="px-4 py-3 text-sm text-slate-600">
+                                                                                    {projectImages.length} {projectImages.length === 1 ? 'document' : 'documents'}
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-sm text-slate-600">
+                                                                                    <span className="text-blue-600 hover:text-blue-800">
+                                                                                        View Gallery
+                                                                                    </span>
+                                                                                </td>
+                                                                            </tr>
+                                                                            <tr>
+                                                                                <td colSpan="2" className="p-0">
+                                                                                    <div
+                                                                                        className="transition-all duration-300 overflow-hidden"
+                                                                                        style={{ maxHeight: expandedProjects.has(project.id) ? '1000px' : '0px' }}
+                                                                                    >
+                                                                                        <div className="p-4 bg-slate-50 border-t border-slate-200">
+                                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                                                                                {projectImages.map((document) => (
+                                                                                                    <div
+                                                                                                        key={document.id}
+                                                                                                        className="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
+                                                                                                        onClick={() => {
+                                                                                                            openImageModal({
+                                                                                                                ...document,
+                                                                                                                projectTitle: project.title,
+                                                                                                                projectIndex: allImages.find(doc => doc.id === document.id && doc.projectTitle === project.title)?.projectIndex ?? 0,
+                                                                                                            });
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        <div className="flex items-start justify-between mb-2">
+                                                                                                            <div className="flex-1">
+                                                                                                                <div className="text-xs font-medium text-blue-600 mb-1">DOCS</div>
+                                                                                                                <p className="text-xs font-semibold text-black truncate leading-tight" title={document.filename || `Document ID: ${document.id}`}>
+                                                                                                                    {document.filename || `Document_${document.id}`}
+                                                                                                                </p>
+                                                                                                            </div>
+                                                                                                            <a
+                                                                                                                href={document.url || '#'}
+                                                                                                                download={document.filename || `document_${document.id}.docx`}
+                                                                                                                className="text-blue-600 hover:text-blue-800 transition-colors p-1"
+                                                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                                                title="Download document"
+                                                                                                            >
+                                                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                                                                                </svg>
+                                                                                                            </a>
+                                                                                                        </div>
+                                                                                                        <div className="flex items-center justify-between text-xs text-slate-500">
+                                                                                                            <span>{formatDocumentSize(document)}</span>
+                                                                                                            <span>{formatDocumentDate(document.created_at)}</span>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                            </div>
                                                                                         </div>
                                                                                     </div>
-
-                                                                                    {/* Date Badge */}
-                                                                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                                                        <div className="bg-black/70 backdrop-blur-sm text-white text-[9px] px-1.5 py-0.5 rounded-full">
-                                                                                            {formatDocumentDate(document.created_at)}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </button>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
+                                                                                </td>
+                                                                            </tr>
+                                                                        </React.Fragment>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
@@ -554,7 +602,56 @@ export default function Gallery({ projects }) {
                                 </div>
                             ) : (
                                 /* Masonry View - Grouped by Year and Category */
-                                <div className="space-y-12">
+                                <div className="space-y-8">
+                                    {/* Year Pills Header */}
+                                    <div className="flex flex-wrap gap-2 pb-4 border-b border-slate-200">
+                                        {Object.entries(groupedProjects)
+                                            .filter(([year, yearData]) => {
+                                                const { projects: projectsInYear } = yearData;
+                                                const filteredProjectsInYear = projectsInYear.filter(project => {
+                                                    if (selectedProject !== 'all' && project.title !== selectedProject) return false;
+                                                    if (selectedYear !== 'all' && String(getProjectYear(project)) !== String(selectedYear)) return false;
+                                                    return project.images.some(img =>
+                                                        !searchTerm ||
+                                                        project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                        img.caption?.toLowerCase().includes(searchTerm.toLowerCase())
+                                                    );
+                                                });
+                                                return year !== 'Unknown Year' && filteredProjectsInYear.length > 0;
+                                            })
+                                            // Ensure descending order is maintained after filtering
+                                            .sort(([, groupA], [, groupB]) => {
+                                                const yearA = parseInt(groupA.year);
+                                                const yearB = parseInt(groupB.year);
+                                                if (isNaN(yearA) || isNaN(yearB)) return 0;
+                                                return yearB - yearA; // Descending order
+                                            })
+                                            .map(([year, yearData]) => {
+                                                return (
+                                                    <button
+                                                        key={year}
+                                                        onClick={() => toggleYearExpansion(year)}
+                                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-montserrat font-medium text-sm shadow-sm hover:shadow-md ${
+                                                            expandedYears.has(String(year))
+                                                                ? 'bg-[#Eb3505] text-white'
+                                                                : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        <span>{year}</span>
+                                                        <svg
+                                                            className={`w-4 h-4 transform transition-transform duration-300 ${expandedYears.has(String(year)) ? 'rotate-180' : ''}`}
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </button>
+                                                );
+                                            })}
+                                    </div>
+
+                                    {/* Year Content Sections */}
                                     {Object.entries(groupedProjects).map(([year, yearData]) => {
                                         const { projects: projectsInYear } = yearData;
 
@@ -569,36 +666,16 @@ export default function Gallery({ projects }) {
                                             );
                                         });
 
-                                        if (filteredProjectsInYear.length === 0) return null;
+                                        if (filteredProjectsInYear.length === 0 || year === 'Unknown Year') return null;
 
                                         return (
                                             <div key={year} className="space-y-0">
-                                                {/* Year Display - Full Width Flat Header (only show if not Unknown Year) */}
-                                                {year !== 'Unknown Year' && (
-                                                    <div
-                                                        onClick={() => toggleYearExpansion(year)}
-                                                        className="w-full bg-[#010066] rounded-lg px-4 py-3 cursor-pointer hover:bg-[#020077] transition-colors flex items-center justify-between"
-                                                    >
-                                                        <h3 className="text-sm font-bold text-white font-montserrat">
-                                                            {year}
-                                                        </h3>
-                                                        <svg
-                                                            className={`w-5 h-5 text-white transform transition-transform duration-300 ${expandedYears.has(year) ? 'rotate-180' : ''}`}
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                                        </svg>
-                                                    </div>
-                                                )}
-
                                                 {/* Projects for this year - Collapsible */}
                                                 <div
                                                     className="transition-all duration-300 overflow-hidden"
                                                     style={{
-                                                        maxHeight: expandedYears.has(year) ? '2000px' : '0px',
-                                                        opacity: expandedYears.has(year) ? 1 : 0
+                                                        maxHeight: expandedYears.has(String(year)) ? '2000px' : '0px',
+                                                        opacity: expandedYears.has(String(year)) ? 1 : 0
                                                     }}
                                                 >
                                                     {filteredProjectsInYear.map((project) => {
@@ -892,6 +969,13 @@ export default function Gallery({ projects }) {
                         </div>
                     </div>
                 )}
+
+                {/* Gallery Modal */}
+                <GalleryModal
+                    show={showProjectGalleryModal}
+                    project={selectedProjectForModal}
+                    onClose={closeGalleryModal}
+                />
             </div>
         </PageLayout>
     );

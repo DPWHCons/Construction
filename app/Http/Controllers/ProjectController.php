@@ -302,6 +302,8 @@ class ProjectController extends Controller
             // Documents
             'images' => 'nullable|array|max:10',
             'images.*' => 'file|mimes:doc,docx|max:512000', // 500MB max for Word documents
+            'document_dates' => 'nullable|array',
+            'document_dates.*' => 'nullable|date'
         ]);
 
         // Handle category - flexible approach for user convenience
@@ -382,15 +384,19 @@ class ProjectController extends Controller
 
         // Handle images - store binary data as base64 in database
         if (isset($validated['images']) && is_array($validated['images'])) {
-            foreach ($validated['images'] as $image) {
+            foreach ($validated['images'] as $index => $image) {
                 try {
                     $imageData = file_get_contents($image->getPathname());
                     // Encode binary data as base64 to store in LONGTEXT
                     $base64Data = base64_encode($imageData);
                     
+                    // Get document date from request or use current date as fallback
+                    $documentDate = $validated['document_dates'][$index] ?? now()->toDateString();
+                    
                     $project->images()->create([
                         'project_id' => $project->id,
                         'image_path' => $base64Data, // Store base64 encoded data
+                        'document_date' => $documentDate, // Store document date
                     ]);
                 } catch (\Exception $e) {
                     \Log::error('Failed to store image to database: ' . $e->getMessage());
@@ -531,7 +537,10 @@ class ProjectController extends Controller
             'scope',
             'progress',
             'remarks',
-            'assignedEngineers'
+            'assignedEngineers',
+            'images' => function($query) {
+                $query->where('is_archived', false);
+            }
         ]);
         
         return Inertia::render('Projects/Edit', [
@@ -631,7 +640,9 @@ class ProjectController extends Controller
             // Documents
             'images' => 'nullable|array|max:10',
             'images.*' => 'file|mimes:doc,docx|max:512000', // 500MB max for Word documents
-            'removed_images' => 'nullable|array'
+            'removed_images' => 'nullable|array',
+            'document_dates' => 'nullable|array',
+            'document_dates.*' => 'nullable|date'
         ]);
 
         // Update project basic info - only update fields that are provided
@@ -783,22 +794,48 @@ class ProjectController extends Controller
                 try {
                     \Log::info('Processing document', ['index' => $index, 'type' => get_class($document)]);
                     
+                    // Read file content
                     $documentData = file_get_contents($document->getPathname());
+                    
                     // Encode binary data as base64 to store in LONGTEXT
                     $base64Data = base64_encode($documentData);
                     
+                    // Get document date from request or use current date as fallback
+                    $documentDate = $validated['document_dates'][$index] ?? now()->toDateString();
+                    
+                    // Store in database
                     $project->images()->create([
                         'project_id' => $project->id,
                         'document' => $base64Data, // Store base64 encoded data
                         'filename' => $document->getClientOriginalName(), // Store original filename
+                        'document_date' => $documentDate, // Store document date
                     ]);
                     
-                    \Log::info('Document stored successfully', ['index' => $index]);
+                    \Log::info('Document stored successfully', ['index' => $index, 'document_date' => $documentDate]);
+                    
+                    // Free memory immediately after processing each image
+                    unset($documentData);
+                    unset($base64Data);
+                    unset($document);
+                    
+                    // Force garbage collection to reclaim memory
+                    if ($index % 3 === 0) { // Every 3 images, run garbage collection
+                        gc_collect_cycles();
+                    }
+                    
                 } catch (\Exception $e) {
                     \Log::error('Failed to store document to database: ' . $e->getMessage());
                     // Continue with other documents even if one fails
+                    
+                    // Clean up memory even on error
+                    unset($document);
+                    if (isset($documentData)) unset($documentData);
+                    if (isset($base64Data)) unset($base64Data);
                 }
             }
+            
+            // Final garbage collection after processing all images
+            gc_collect_cycles();
         } else {
             \Log::info('No documents found in validated data', ['validated_keys' => array_keys($validated)]);
         }
@@ -1238,11 +1275,9 @@ class ProjectController extends Controller
         
         foreach ($titleArray as $title) {
             if (!empty($title) && !in_array($title, $validTitles)) {
-                throw new \Illuminate\Validation\ValidationException(
-                    validator()->make([], [])
-                        ->errors()
-                        ->add('engineer_title', "Invalid engineer title: {$title}. Valid titles are: " . implode(', ', $validTitles))
-                );
+                // Return invalid titles as-is for now; validation happens in request validation
+                // Valid titles: RE, QE, PI, ME, Lab Tech/Lab Aide
+                \Log::warning('Invalid engineer title provided', ['title' => $title, 'valid_titles' => $validTitles]);
             }
         }
         

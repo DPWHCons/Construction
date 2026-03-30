@@ -795,15 +795,11 @@ export default function Archive({ archivedDocuments }) {
 
         const handleRestore = async (category) => {
             try {
-                console.log('Attempting to restore category:', category);
                 const result = await showRestoreConfirmation(category.name);
                 
                 if (result.isConfirmed) {
-                    console.log('User confirmed, sending request to:', route('archive.categories.restore', category.id));
-                    
                     router.post(route('archive.categories.restore', category.id), {}, {
                         onSuccess: (page) => {
-                            console.log('Category restore successful:', page);
                             showSuccessToast(`Category "${category.name}" restored successfully!`);
                             // Redirect to categories page to see the restored category
                             window.location.href = route('categories.index');
@@ -1034,15 +1030,11 @@ export default function Archive({ archivedDocuments }) {
 
         const handleRestore = async (contractor) => {
             try {
-                console.log('Attempting to restore contractor:', contractor);
                 const result = await showRestoreConfirmation(contractor.contractor_name);
                 
                 if (result.isConfirmed) {
-                    console.log('User confirmed, sending request to:', route('archive.contractors.restore', contractor.contractor_name));
-                    
                     router.post(route('archive.contractors.restore', contractor.contractor_name), {}, {
                         onSuccess: (page) => {
-                            console.log('Contractor restore successful:', page);
                             showSuccessToast(`Contractor "${contractor.contractor_name}" restored successfully!`);
                         },
                         onError: (errors) => {

@@ -1,27 +1,22 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { showSuccessToast, showErrorToast, showArchiveConfirmation } from '../Utils/alerts';
+import { showSuccessToast, showErrorToast } from '../Utils/alerts';
 import { Head, router } from '@inertiajs/react';
-import GallerySkeleton from './GallerySkeleton';
-import Swal from 'sweetalert2';
 
-export default function ProjectGalleryModal({ show, project, onClose, onBackToDetails }) {
+export default function GalleryModal({ show, project, onClose }) {
     const [displayMode, setDisplayMode] = useState('grid'); // grid, list
     const [selectedDocuments, setSelectedDocuments] = useState(new Set()); // Set of selected document indices
     const [isSelectionMode, setIsSelectionMode] = useState(false); // For multi-select
     const [selectedDocument, setSelectedDocument] = useState(null); // For popup display
     const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // For shift-click range selection
     const [openMonths, setOpenMonths] = useState(new Set()); // For collapsible months
-    const [isLoading, setIsLoading] = useState(true); // Start with true, will be set to false when ready
 
     // Group documents by month
     const groupedDocuments = useMemo(() => {
-        if (!project?.images || project.images.length === 0) {
-            return {};
-        }
+        if (!project?.images) return {};
 
-        const result = project.images.reduce((groups, doc) => {
-            // Use document_date if available, fallback to created_at, default to today if both missing
-            const dateSource = doc.document_date || doc.created_at || new Date().toISOString();
+        return project.images.reduce((groups, doc) => {
+            // Use document_date if available, fallback to created_at
+            const dateSource = doc.document_date || doc.created_at;
             if (!dateSource) return groups;
 
             const date = new Date(dateSource);
@@ -35,8 +30,6 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
 
             return groups;
         }, {});
-        
-        return result;
     }, [project?.images]);
 
     // Sort documents within each month group (newest first)
@@ -78,34 +71,6 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
     }, [selectedDocument]);
-
-    // Handle loading state - turn off when data is ready
-    useEffect(() => {
-        if (!show) {
-            return; // Don't change loading state when modal is closed
-        }
-
-        // If no project or images, loading is done
-        if (!project?.images) {
-            setIsLoading(false);
-            return;
-        }
-
-        // If images array is empty, loading is done
-        if (project.images.length === 0) {
-            setIsLoading(false);
-            return;
-        }
-
-        // If we have grouped documents, loading is done
-        if (Object.keys(groupedDocuments).length > 0) {
-            setIsLoading(false);
-            return;
-        }
-
-        // Otherwise, we're still loading
-        setIsLoading(true);
-    }, [show, project?.images, groupedDocuments]);
 
     // Toggle month collapse
     const toggleMonth = (month) => {
@@ -248,28 +213,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
             return;
         }
 
-        // Modern SweetAlert confirmation
-        const result = await Swal.fire({
-            title: 'Archive documents?',
-            html: `Archive <strong>${documentIds.length} document${documentIds.length > 1 ? 's' : ''}</strong>?`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Archive',
-            cancelButtonText: 'Cancel',
-            reverseButtons: true,
-            customClass: {
-                popup: 'rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.18)] border border-slate-100 bg-white',
-                title: 'text-base font-semibold text-slate-900 tracking-tight font-sans',
-                htmlContainer: 'text-sm text-slate-600 text-center font-sans mt-2',
-                actions: 'gap-3 mt-6',
-                confirmButton:
-                    'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-[#Eb3505] text-white hover:opacity-95 transition-all duration-150 active:scale-95',
-                cancelButton:
-                    'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all duration-150 active:scale-95',
-            },
-        });
-
-        if (!result.isConfirmed) {
+        if (!confirm(`Are you sure you want to archive ${documentIds.length} document(s)?`)) {
             return;
         }
 
@@ -315,7 +259,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                     className="bg-white rounded-xl shadow-2xl w-[900px] h-[600px] overflow-hidden border border-slate-200 flex flex-col"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* 🔥 Header */}
+                    {/* Header */}
                     <div className="sticky top-0 flex items-center justify-between bg-gray-50 px-5 py-4 z-10 border-b border-gray-200">
 
                         <div className="flex items-center gap-3">
@@ -325,19 +269,13 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                         </div>
                         <div className="flex items-center gap-3">
                             <button
-                                onClick={onBackToDetails}
-                                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                                onClick={onClose}
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-800 transition-colors"
                             >
-                                Project Details
-                            </button>
-                            <button
-                            onClick={onClose}
-                            className="w-8 h-8 flex items-center justify-center rounded-full bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-800 transition-colors"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>   
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>   
                         </div>
                     </div>
 
@@ -408,9 +346,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
 
                             {/* Gallery Documents */}
                             <div className="p-4">
-                                {isLoading ? (
-                                    <GallerySkeleton displayMode={displayMode} />
-                                ) : sortedMonths.length > 0 ? (
+                                {sortedMonths.length > 0 ? (
                                     <div className="space-y-6">
                                         {sortedMonths.map(([monthKey, docs]) => (
                                             <div key={monthKey}>

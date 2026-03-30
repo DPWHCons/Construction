@@ -61,6 +61,7 @@ class ArchiveController extends Controller
                 'deletedDate' => $image->archived_at ? $image->archived_at->format('M j, Y') : 'N/A',
                 'deletionReason' => 'Manually archived',
                 'archived_at' => $image->archived_at,
+                'document_date' => $image->document_date,
             ];
         })->toArray());
         

@@ -9,7 +9,10 @@ import ProjectDetailsModal from '@/Components/ProjectDetailsModal';
 import ProjectGalleryModal from '@/Components/ProjectGalleryModal';
 import ImportModal from '@/Components/ImportModal';
 import DPWHLoading from '@/Components/DPWHLoading';
+import ProjectTableSkeleton from '@/Components/ProjectTableSkeleton';
 import useAutoRefresh from '@/Hooks/useAutoRefresh';
+import { MagnifyingGlassIcon, FunnelIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, PlusIcon, PencilIcon, ArchiveBoxIcon, EyeIcon, ExclamationTriangleIcon, CheckCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ProjectManagementHelp, FilterHelp } from '@/Components/ContextualHelp';
 
 export default function ManageProject({ projects, categories, availableLetters, availableYears = [], selectedYear: initialYear = 'all' }) {
     const urlParams = new URLSearchParams(window.location.search);
@@ -17,64 +20,69 @@ export default function ManageProject({ projects, categories, availableLetters, 
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [selectedYear, setSelectedYear] = useState(initialYear);
-    // const [yearRangeStart, setYearRangeStart] = useState(new Date().getFullYear() - 2); // Unused
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingProject, setEditingProject] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);
     const [showImages, setShowImages] = useState(false);
     const [openCategories, setOpenCategories] = useState({});
-    // const [categoryHeights, setCategoryHeights] = useState({}); // Unused
-    // const [animatingCategories, setAnimatingCategories] = useState(new Set()); // Unused
-    const [expandedYears, setExpandedYears] = useState(new Set()); // Track which years are expanded
+    const [expandedYears, setExpandedYears] = useState(() => {
+        // Initialize with the most recent year from projects
+        if (projects?.data && projects.data.length > 0) {
+            const years = [...new Set(projects.data.map(p => p.project_year).filter(Boolean))]
+                .sort((a, b) => b - a);
+            if (years.length > 0) {
+                return new Set([years[0]]);
+            }
+        }
+        return new Set();
+    });
     const [yearHeights, setYearHeights] = useState({});
     const [animatingYears, setAnimatingYears] = useState(new Set());
     const [loading, setLoading] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [showDPWHLoading, setShowDPWHLoading] = useState(false);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState({});
     const [itemsPerPage] = useState(10);
-
     const [projectData, setProjectData] = useState(projects?.data || []);
-    const [allProjectData, setAllProjectData] = useState(projects?.data || []); // Store all data for client-side filtering
+    const [allProjectData, setAllProjectData] = useState(projects?.data || []); 
 
-    // Debounce search term to prevent excessive re-renders
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearchTerm(searchTerm);
-        }, 300); // 300ms delay
+        }, 300); 
 
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    // Client-side filtering based on search term and filters
     useEffect(() => {
         let filtered = [...allProjectData];
-
-        // Filter by search term
+        
         if (debouncedSearchTerm.trim()) {
             const searchLower = debouncedSearchTerm.toLowerCase();
             filtered = filtered.filter(project => 
                 (project.contract_id && project.contract_id.toLowerCase().includes(searchLower)) ||
-                (project.title && project.title.toLowerCase().includes(searchLower))
+                (project.title && project.title.toLowerCase().includes(searchLower)) ||
+                (project.category?.name && project.category.name.toLowerCase().includes(searchLower))
             );
         }
 
-        // Filter by status
+        // Apply status filter
         if (filterStatus !== 'all') {
             filtered = filtered.filter(project => project.status === filterStatus);
         }
 
-        // Filter by year
+        // Apply year filter
         if (selectedYear !== 'all') {
             filtered = filtered.filter(project => project.project_year === selectedYear);
         }
 
         setProjectData(filtered);
-        setCurrentPage({}); // Reset pagination when filters change
+        setCurrentPage({});
+        setLoading(false);
     }, [debouncedSearchTerm, filterStatus, selectedYear, allProjectData]);
 
-    // Dynamic available years based on current project data (both original and newly added)
     const dynamicAvailableYears = useMemo(() => {
         return [...new Set(projectData.map(p => p.project_year).filter(Boolean))]
             .sort((a, b) => b - a);
@@ -85,7 +93,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
         preserveState: true,
     });
 
-    // Stop auto-refresh to prevent delays when adding/updating projects
     useEffect(() => {
         stopAutoRefresh();
         return () => {
@@ -93,11 +100,8 @@ export default function ManageProject({ projects, categories, availableLetters, 
         };
     }, []);
 
-    // Cleanup DPWHLoading state on unmount and reset on mount
     useEffect(() => {
-        // Reset loading state when component mounts
         setShowDPWHLoading(false);
-        
         return () => {
             setShowDPWHLoading(false);
         };
@@ -105,22 +109,21 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
     useEffect(() => {
         if (!projects?.data) return;
-
         setAllProjectData(prev => {
             const map = new Map(prev.map(p => [p.id, p]));
 
             projects.data.forEach(p => {
-                map.set(p.id, p); // update or insert
+                map.set(p.id, p);
             });
 
             return Array.from(map.values());
         });
+        // Set initial loading to false after data is loaded
+        setIsInitialLoading(false);
     }, [projects]);
 
-    // Sync selectedYear with backend props
     useEffect(() => {
         setSelectedYear(initialYear || 'all');
-        // Reset pagination when year changes
         setCurrentPage({});
     }, [initialYear]);
 
@@ -129,7 +132,73 @@ export default function ManageProject({ projects, categories, availableLetters, 
         setCurrentPage({});
     }, [searchTerm, filterStatus]);
 
-    // Helper function to extract last 3 digits from contract ID
+    // Project Table Row component
+    const ProjectTableRow = ({ project, onEdit, onArchive, onView, index }) => {
+        return (
+            <tr 
+                className={`${index % 2 === 0 ? 'bg-white' : 'bg-purple-50'} hover:bg-purple-100 transition-colors cursor-pointer border-b border-purple-100 last:border-b-0`}
+                onClick={() => onView(project)}
+                style={{ animationDelay: `${index * 50}ms` }}
+            >
+                <td className="px-6 py-4 text-sm font-mono text-slate-700 font-semibold">
+                    {project.contract_id || 'N/A'}
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-900 font-medium">
+                    <div className="whitespace-normal" title={project.title}>
+                        {project.title}
+                    </div>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-600">
+                    {project.category?.name || '-'}
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-600">
+                    {project.project_year || '-'}
+                </td>
+                <td className="px-6 py-4 text-sm">
+                    <div className="flex flex-col items-center gap-2 justify-center">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onView(project);
+                            }}
+                            className="px-1 py-2 bg-white text-green-600 hover:bg-green-50 transition-colors shadow text-xs font-bold w-full border border-green-600 rounded-lg flex items-center justify-center gap-2"
+                            title="View Details"
+                        >
+                            <EyeIcon className="w-4 h-4 text-green-600" />
+                            <span className="text-green-600">View</span>
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onEdit(project);
+                            }}
+                            className="px-1 py-2 bg-white text-blue-600 hover:bg-blue-50 transition-colors shadow text-xs font-bold w-full border border-blue-600 rounded-lg flex items-center justify-center gap-2"
+                            title="Edit Project"
+                        >
+                            <PencilIcon className="w-4 h-4 text-blue-600" />
+                            <span className="text-blue-600">Edit</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onArchive(project);
+                            }}
+                            className="px-1 py-2 bg-white hover:bg-red-50 transition-colors shadow text-xs font-bold w-full border rounded-lg flex items-center justify-center gap-2"
+                            style={{ color: '#Eb3505' }}
+                            title="Archive Project"
+                        >
+                            <ArchiveBoxIcon className="w-4 h-4" style={{ color: '#Eb3505' }} />
+                            <span style={{ color: '#Eb3505' }}>Archive</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        );
+    };
     const getContractLast3 = (contractId) => {
         if (!contractId) return 0;
         const match = contractId.match(/(\d{3})$/);
@@ -178,7 +247,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
                             onClick={() => handlePageChange(year, pageNum)}
                             className={`w-8 h-8 text-sm rounded-md transition-colors ${
                                 pageNum === current
-                                    ? 'bg-[#010066] text-white'
+                                    ? 'bg-[#eb3505] text-white'
                                     : 'bg-white border border-slate-300 hover:bg-slate-50'
                             }`}
                         >
@@ -204,7 +273,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
 
     // Group projects by year and sort by contract ID last 3 digits
     const groupedProjects = useMemo(() => {
-        // Backend already filtered by year - just group the data
         const filteredData = projectData;
 
         return filteredData.reduce((groups, project) => {
@@ -243,17 +311,14 @@ export default function ManageProject({ projects, categories, availableLetters, 
         
         const entries = Object.entries(sortedGroupedProjects);
         entries.sort(([, groupA], [, groupB]) => {
-            // Handle "Unknown Year" by putting it at the end
             if (groupA.year === 'Unknown Year') return 1;
             if (groupB.year === 'Unknown Year') return -1;
-            // Sort by year in descending order
             return parseInt(groupB.year) - parseInt(groupA.year);
         });
         
         return Object.fromEntries(entries);
     }, [sortedGroupedProjects, selectedYear]);
 
-    // Group by year for better organization - reuse sorted results
     const projectsByYear = useMemo(() => {
         if (selectedYear !== 'all') {
             return new Map([[selectedYear, Object.entries(finalGroupedProjects)]]);
@@ -291,12 +356,10 @@ export default function ManageProject({ projects, categories, availableLetters, 
             const hasAnyOpen = Object.values(updatedOpen).some(isOpen => isOpen);
             
             if (!hasAnyOpen && yearKeys.length > 0) {
-                // Find the most recent year (first in sorted order)
                 const mostRecentYear = yearKeys[0];
                 updatedOpen[mostRecentYear] = true;
             }
 
-            // Remove years that no longer exist
             Object.keys(updatedOpen).forEach(groupKey => {
                 if (!(groupKey in finalGroupedProjects)) {
                     delete updatedOpen[groupKey];
@@ -536,26 +599,20 @@ export default function ManageProject({ projects, categories, availableLetters, 
     };
 
     const handleImportSuccess = (result) => {
-        // Show DPWH loading effect briefly
         setShowDPWHLoading(true);
-        
-        // Show loading for a moment, then display modern confirmation
-        setTimeout(() => {
-            // Hide loading first
+                setTimeout(() => {
             setShowDPWHLoading(false);
             
-            // Show modern, compact confirmation
             showImportConfirmation(result.imported, result.failed || 0);
             
-            // Refresh the projects list using Inertia
             setTimeout(() => {
                 router.reload({
                     only: ['projects'],
                     preserveState: true,
                     preserveScroll: true,
                 });
-            }, 500); // Small delay to let the toast show first
-        }, 1000); // Show loading for 1 second instead of 2
+            }, 500);
+        }, 1000);
     };
 
     return (
@@ -563,11 +620,9 @@ export default function ManageProject({ projects, categories, availableLetters, 
             <Head title="Manage Projects" />
             <style>{`
                 .transition-max-height {
-                    transition: max-height 0.3s ease-out;
                     overflow: hidden;
                 }
                 .category-content {
-                    transition: height 0.3s ease-out, opacity 0.3s ease-out;
                     overflow: hidden;
                 }
                 .category-content.collapsed {
@@ -578,7 +633,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
                     opacity: 1;
                 }
                 .year-content {
-                    transition: max-height 0.4s ease-out, opacity 0.4s ease-out;
                     overflow: hidden;
                 }
                 .year-content.collapsed {
@@ -589,14 +643,11 @@ export default function ManageProject({ projects, categories, availableLetters, 
                     opacity: 1;
                 }
                 .year-header {
-                    transition: all 0.3s ease-out;
                 }
                 .year-header:hover {
-                    transform: translateX(2px);
                     box-shadow: 0 4px 12px rgba(1, 0, 102, 0.15);
                 }
                 .year-chevron {
-                    transition: transform 0.3s ease-out;
                 }
                 /* Minimize scroll bar indicator */
                 ::-webkit-scrollbar {
@@ -620,232 +671,229 @@ export default function ManageProject({ projects, categories, availableLetters, 
                 }
             `}</style>
 
-            <div className="space-y-4">
-                {/* Header Section */}
+            <div className="space-y-4 font-montserrat">
+                {/* Enhanced Header Section */}
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-3xl font-bold text-slate-900 font-montserrat leading-none" style={{ fontSize: '2rem', lineHeight: '0.8' }}>
-                            Manage Projects {selectedYear !== 'all' && `(${selectedYear})`}
-                        </h2>
+                    <div className="flex items-center gap-3">
+                        <div>
+                            <h2 className="text-3xl font-bold text-slate-900 font-montserrat leading-none" style={{ fontSize: '2rem', lineHeight: '0.8' }}>
+                                Manage Projects {selectedYear !== 'all' && `(${selectedYear})`}
+                            </h2>
+                            <p className="text-slate-500 mt-2 font-montserrat text-sm">
+                                {projectData.length} projects found • Click any project to view details
+                            </p>
+                        </div>
+                        <ProjectManagementHelp />
                     </div>
                     <div className="flex space-x-3" >
                         <button
                             onClick={() => setShowImportModal(true)}
-                            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold shadow-md hover:bg-blue-700 transition-all font-montserrat"
+                            className="inline-flex items-center px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold shadow-md hover:bg-blue-700 transition-all font-montserrat hover:shadow-lg"
                         >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
+                            <ArrowUpTrayIcon className="w-4 h-4 mr-2" />
                             Import
                         </button>
                         <button
                             onClick={handleExport}
-                            className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold shadow-md hover:bg-green-700 transition-all font-montserrat"
+                            className="inline-flex items-center px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-semibold shadow-md hover:bg-green-700 transition-all font-montserrat hover:shadow-lg"
                         >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                            <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
                             Export
                         </button>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="inline-flex items-center px-4 py-2 bg-[#Eb3505] text-white rounded-xl text-sm font-semibold shadow-md hover:bg-[#d12e04] transition-all font-montserrat"
+                            className="inline-flex items-center px-4 py-2.5 bg-[#Eb3505] text-white rounded-xl text-sm font-semibold shadow-md hover:bg-[#d12e04] transition-all font-montserrat hover:shadow-lg"
                         >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                            </svg>
+                            <PlusIcon className="w-4 h-4 mr-2" />
                             New Project
                         </button>
                     </div>
                 </div>
 
-                <div className="flex items-center justify-end mb-6 gap-2" style={{marginTop: '3rem'}}> 
-                    <div style={{ width: '400px', flexShrink: 0 }}>
-                        <input
-                            type="text"
-                            placeholder="Search by contract ID or project title..."
-                            value={searchTerm}
-                            onChange={(e) => handleSearch(e.target.value)}
-                            className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent font-montserrat"
-                        />
-                    </div>
+                {/* Enhanced Search and Filter Section */}
+                <div className="flex justify-end">
+                    <div className="flex items-center gap-3" style={{ minWidth: '600px' }}>
+                        <div className="relative flex-1">
+                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search by contract ID, project title, or category..."
+                                value={searchTerm}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent font-montserrat text-sm"
+                            />
+                        </div>
 
-                    <div className="w-44">
                         <select
                             value={filterStatus}
                             onChange={(e) => handleFilterChange(e.target.value)}
-                            className="w-full pl-2 pr-4 py-2.5 border border-slate-200 rounded-xl shadow-sm 
-                   focus:outline-none focus:ring-2 focus:ring-[#Eb3505] 
-                   focus:border-transparent font-montserrat text-sm 
-                   bg-white text-black hover:border-slate-300 transition"
+                            className="w-40 px-4 py-2.5 border border-slate-200 rounded-xl shadow-sm 
+               focus:outline-none focus:ring-2 focus:ring-[#Eb3505] 
+               focus:border-transparent font-montserrat text-sm 
+               bg-white text-black hover:border-slate-300 transition flex-shrink-0"
                         >
                             <option value="all">All Status</option>
                             <option value="ongoing">Project Ongoing</option>
                             <option value="completed">Project Complete</option>
                             <option value="pending">Project Pending</option>
                         </select>
-                    </div>
-
-                    <div className="w-90">
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => handleYearChange(e.target.value)}
-                            className="w-full pl-2 pr-4 py-2.5 border border-slate-200 rounded-xl shadow-sm 
-                   focus:outline-none focus:ring-2 focus:ring-[#Eb3505] 
-                   focus:border-transparent font-montserrat text-sm 
-                   bg-white text-black hover:border-slate-300 transition"
+                        
+                        <button
+                            onClick={() => {
+                                setSearchTerm('');
+                                setFilterStatus('all');
+                                setSelectedYear('all');
+                            }}
+                            className="text-sm text-red-600 hover:text-red-800 font-medium flex items-center gap-1 px-3 py-2.5 rounded-lg border border-red-200 bg-white hover:bg-red-100 transition-all duration-200 whitespace-nowrap shadow-sm hover:shadow flex-shrink-0"
                         >
-                            <option value="all">All Years</option>
-                            {dynamicAvailableYears.map((year) => (
-                                <option key={year} value={year}>
-                                    {year}
-                                </option>
-                            ))}
-                        </select>
+                            Clear All
+                        </button>
                     </div>
-
-                    <button
-                        onClick={() => {
-                            setSearchTerm('');
-                            setFilterStatus('all');
-                            setSelectedYear('all');
-                        }}
-                        className="px-4 py-2 bg-[#Eb3505] text-white rounded-xl font-montserrat hover:bg-[#c42a03] transition"
-                    >
-                        Clear
-                    </button>
                 </div>
 
-                {/* Projects Grouped by Year */}
-                <div className="mt-8 space-y-4">
-                    {Array.from(projectsByYear.entries())
-                        .sort(([yearA], [yearB]) => {
-                            // Sort years in descending order (recent first)
-                            if (yearA === 'Unknown Year') return 1;
-                            if (yearB === 'Unknown Year') return -1;
-                            return parseInt(yearB) - parseInt(yearA);
-                        })
-                        .map(([year, yearData]) => (
-                        <div key={year} className="space-y-1">
-                            {/* Year Display - Full Width Flat Header */}
-                            {selectedYear === 'all' && year && (
-                                <div 
-                                    onClick={() => toggleYear(year)}
-                                    className={`w-full bg-[#010066] rounded-lg px-4 py-3 cursor-pointer hover:bg-[#020077] transition-colors flex items-center justify-between ${
-                                        animatingYears.has(year) ? 'pointer-events-none' : ''
-                                    }`}
-                                >
-                                    <h3 className="text-base font-bold text-white font-montserrat">
-                                        {year}
-                                    </h3>
-                                    <svg 
-                                        className={`w-5 h-5 text-white transform transition-transform duration-300 ${expandedYears.has(year) ? 'rotate-180' : ''}`}
-                                        fill="none" 
-                                        stroke="currentColor" 
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-                            )}
+                {/* Year Pill Tabs */}
+                {selectedYear === 'all' && (
+                    <div className="mb-6">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {Array.from(projectsByYear.entries())
+                                .sort(([yearA], [yearB]) => {
+                                    // Sort years in descending order (recent first)
+                                    if (yearA === 'Unknown Year') return 1;
+                                    if (yearB === 'Unknown Year') return -1;
+                                    return parseInt(yearB) - parseInt(yearA);
+                                })
+                                .map(([year, yearData]) => {
+                                    const isActive = expandedYears.has(year);
+                                    
+                                    return (
+                                        <button
+                                            key={year}
+                                            onClick={() => {
+                                                setExpandedYears(prev => {
+                                                    const newSet = new Set();
+                                                    newSet.add(year);
+                                                    return newSet;
+                                                });
+                                                setCurrentPage({});
+                                            }}
+                                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                                                isActive
+                                                    ? 'text-white shadow-md'
+                                                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                                            }`}
+                                            style={isActive ? { backgroundColor: '#eb3505' } : {}}
+                                        >
+                                            {year}
+                                        </button>
+                                    );
+                                })}
+                        </div>
+                    </div>
+                )}
 
-                            {/* Projects List for this year - Animated container */}
-                            <div
-                                id={`year-content-${year}`}
-                                className={`year-content ${(selectedYear !== 'all' || expandedYears.has(year)) ? 'expanded' : 'collapsed'}`}
-                                style={{
-                                    maxHeight: (selectedYear !== 'all' || expandedYears.has(year)) ? '9999px' : '0'
-                                }}
-                            >
-                                {((selectedYear === 'all' && year && expandedYears.has(year)) || selectedYear !== 'all') && (
-                                    <div className="space-y-0">
-                                        {yearData.map(([groupKey, group]) => {
-                                            const { projects: projectsInYear } = group;
-                                            
-                                            if (projectsInYear.length === 0) {
-                                                return (
-                                                    <div key={groupKey} className="bg-white p-8 text-center rounded-xl">
-                                                        <div className="flex flex-col items-center">
-                                                            <svg className="w-12 h-12 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                                                            </svg>
-                                                            <p className="text-slate-500 font-montserrat">No projects found</p>
+                {/* Projects Display */}
+                <div className="space-y-4">
+                    {/* Show skeleton during initial load */}
+                    {isInitialLoading ? (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="h-8 bg-slate-200 rounded w-32 animate-pulse"></div>
+                                <div className="h-px bg-slate-200 flex-1"></div>
+                            </div>
+                            <ProjectTableSkeleton rows={10} />
+                        </div>
+                    ) : (
+                        Array.from(projectsByYear.entries())
+                            .sort(([yearA], [yearB]) => {
+                                // Sort years in descending order (recent first)
+                                if (yearA === 'Unknown Year') return 1;
+                                if (yearB === 'Unknown Year') return -1;
+                                return parseInt(yearB) - parseInt(yearA);
+                            })
+                            .map(([year, yearData]) => {
+                                const shouldShow = selectedYear !== 'all' || expandedYears.has(year) || debouncedSearchTerm.trim();
+                                
+                                if (!shouldShow) return null;
+
+                                return (
+                                    <div key={year} className="space-y-4">
+                                        {selectedYear === 'all' && (
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <h3 className="text-xl font-bold text-slate-900 font-montserrat">
+                                                    {year} Projects 
+                                                    <span className="text-sm font-normal text-slate-500 ml-2">
+                                                        ({yearData.reduce((count, [, group]) => count + group.projects.length, 0)} projects) 
+                                                    </span>
+                                                </h3>
+                                                <div className="h-px bg-slate-200 flex-1"></div>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-0">
+                                            {yearData.map(([groupKey, group]) => {
+                                                const { projects: projectsInYear } = group;
+                                                
+                                                // Show skeleton during loading/searching
+                                                if (loading && projectsInYear.length > 0) {
+                                                    return (
+                                                        <div key={groupKey} className="space-y-4">
+                                                            <ProjectTableSkeleton rows={Math.min(5, projectsInYear.length)} />
                                                         </div>
+                                                    );
+                                                }
+                                                
+                                                if (projectsInYear.length === 0) {
+                                                    return (
+                                                        <div key={groupKey} className="bg-white p-8 text-center rounded-xl">
+                                                            <div className="flex flex-col items-center">
+                                                                <svg className="w-12 h-12 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                                                </svg>
+                                                                <p className="text-slate-500 font-montserrat">No projects found</p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                const displayYear = selectedYear === 'all' ? year : selectedYear;
+                                                const paginatedProjects = getCurrentPageProjects(projectsInYear, displayYear);
+
+                                                return (
+                                                    <div key={groupKey} className="bg-white rounded-xl border border-purple-200 overflow-hidden shadow-md">
+                                                        <table className="w-full table-fixed">
+                                                            <thead style={{ backgroundColor: '#Eb3505' }}>
+                                                                <tr>
+                                                                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Contract ID</th>
+                                                                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Project Title</th>
+                                                                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Category</th>
+                                                                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Year</th>
+                                                                    <th className="px-6 py-4 text-right text-xs font-bold text-white uppercase tracking-wider">Actions</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-purple-100">
+                                                                {paginatedProjects.map((project, index) => (
+                                                                    <ProjectTableRow
+                                                                        key={project.id}
+                                                                        project={project}
+                                                                        onEdit={handleEditProject}
+                                                                        onArchive={handleArchiveProject}
+                                                                        onView={handleViewDetails}
+                                                                        index={index}
+                                                                    />
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                        
+                                                        {/* Add pagination controls for this year */}
+                                                        {renderPaginationControls(displayYear, projectsInYear.length)}
                                                     </div>
                                                 );
-                                            }
-
-                                            // Get paginated projects for this year
-                                            const displayYear = selectedYear === 'all' ? year : selectedYear;
-                                            const paginatedProjects = getCurrentPageProjects(projectsInYear, displayYear);
-
-                                            return (
-                                                <div key={groupKey}>
-                                                    {paginatedProjects.map((project, index) => {
-                                                        const contract = project.contracts?.[0] || {};
-
-                                                        return (
-                                                            <div 
-                                                                key={project.id} 
-                                                                className="bg-white rounded-xl p-4 hover:bg-slate-50 transition-colors cursor-pointer shadow-sm border border-slate-200"
-                                                                onClick={() => handleViewDetails(project)}
-                                                            >
-                                                                <div className="flex items-start justify-between gap-4">
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <div className="flex items-center gap-3 mb-2">
-                                                                            <span className="text-sm font-medium text-slate-600">{project.contract_id || '-'}</span>
-                                                                            <span className="text-xs px-2 py-1 rounded-full text-slate-600">
-                                                                                {project.category?.name || 'Uncategorized'}
-                                                                            </span>
-                                                                        </div>
-                                                                        <h4 className="font-semibold text-slate-900 text-sm mb-1 line-clamp-2">{project.title}</h4>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2 shrink-0">
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                e.preventDefault();
-                                                                                handleEditProject(project);
-                                                                            }}
-                                                                            className="flex items-center gap-1.5 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm"
-                                                                            title="Edit Project"
-                                                                        >
-                                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                                            </svg>
-                                                                            <span>Edit</span>
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                e.preventDefault();
-                                                                                handleArchiveProject(project);
-                                                                            }}
-                                                                            className="flex items-center gap-1.5 px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium shadow-sm"
-                                                                            title="Archive Project"
-                                                                        >
-                                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                                                            </svg>
-                                                                            <span>Archive</span>
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    
-                                                    {/* Add pagination controls for this year */}
-                                                    {renderPaginationControls(displayYear, projectsInYear.length)}
-                                                </div>
-                                            );
-                                        })}
+                                            })}
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                                );
+                            })
+                    )}
                 </div>
 
                 {/* Loading State */}
@@ -863,8 +911,8 @@ export default function ManageProject({ projects, categories, availableLetters, 
                     </div>
                 )}
 
-                {/* No Results Message */}
-                {!loading && projectData.length === 0 && (
+                {/* No Results Message - Only show when not initial loading and not searching */}
+                {!isInitialLoading && !loading && projectData.length === 0 && (
                     <div className="text-center py-8">
                         <div className="inline-flex items-center gap-2 bg-slate-100 rounded-full px-6 py-3">
                             <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

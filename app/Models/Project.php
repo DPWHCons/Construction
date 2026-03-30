@@ -52,17 +52,10 @@ class Project extends Model
         return $this->hasMany(AssignedEngineer::class);
     }
 
-    public function engineers(): BelongsToMany
-    {
-        return $this->belongsToMany(Engineer::class, 'project_engineers')
-            ->withPivot('title_id')
-            ->withTimestamps();
-    }
-
-    public function projectEngineers(): HasMany
-    {
-        return $this->hasMany(ProjectEngineer::class);
-    }
+    // Note: This relationship references tables created by migration 2026_03_05_025439
+    // but was never fully implemented. Using AssignedEngineer model instead.
+    // public function engineers(): BelongsToMany { ... }
+    // public function projectEngineers(): HasMany { ... }
 
     public function scope(): HasMany
     {

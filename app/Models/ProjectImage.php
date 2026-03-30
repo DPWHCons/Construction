@@ -18,11 +18,13 @@ class ProjectImage extends Model
         'caption',
         'is_archived',
         'archived_at',
+        'document_date',
     ];
 
     protected $casts = [
         'is_archived' => 'boolean',
         'archived_at' => 'datetime',
+        'document_date' => 'date',
     ];
 
     protected $appends = ['url'];

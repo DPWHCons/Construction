@@ -3,6 +3,8 @@ import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import useAutoRefresh from '@/Hooks/useAutoRefresh';
 import FeedbackAlert from '@/Components/FeedbackAlert';
+import { ChartBarIcon, ArrowTrendingUpIcon, ClockIcon, CheckCircleIcon, ExclamationCircleIcon, ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { DashboardHelp } from '@/Components/ContextualHelp';
 
 export default function Dashboard() {
     const { auth, stats, monthlyData, recentProjects, selectedYear: initialYear, availableYears } = usePage().props;
@@ -127,6 +129,46 @@ export default function Dashboard() {
         </div>
     );
 
+    // Enhanced KPI Card with trend indicator
+    const EnhancedKpiCard = ({ title, value, icon, color, trend, subtitle, onClick }) => (
+        <div 
+            className="bg-white p-4 rounded-xl shadow-lg border-2 border-slate-200 relative group hover:shadow-xl transition-all cursor-pointer flex-1 min-w-0"
+            onClick={onClick}
+        >
+            <div className="flex justify-between items-start mb-3">
+                <div className={`p-2 ${color.bg} rounded-xl ${color.text} transition-colors group-hover:${color.hoverBg}`}>
+                    {icon}
+                </div>
+                {trend && (
+                    <div className={`flex items-center gap-1 text-xs font-medium ${trend.color}`}>
+                        {trend.value > 0 ? (
+                            <ArrowTrendingUpIcon className="w-3 h-3" />
+                        ) : (
+                            <ArrowPathIcon className="w-3 h-3" />
+                        )}
+                        {Math.abs(trend.value)}%
+                    </div>
+                )}
+            </div>
+            <div className="space-y-1">
+                <h3 className="text-2xl font-black text-slate-900 font-montserrat tracking-tight">{value}</h3>
+                <p className="text-xs font-bold font-montserrat" style={{color: '#010066'}}>{title}</p>
+                {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+            </div>
+        </div>
+    );
+
+    // Quick Action Button
+    const QuickActionButton = ({ icon, label, onClick, color = 'blue' }) => (
+        <button
+            onClick={onClick}
+            className={`flex items-center gap-2 px-4 py-2 bg-${color}-600 text-white rounded-xl text-sm font-semibold shadow-md hover:bg-${color}-700 transition-all font-montserrat`}
+        >
+            {icon}
+            {label}
+        </button>
+    );
+
     return (
         <PageLayout>
             <Head title="Dashboard" />
@@ -142,49 +184,55 @@ export default function Dashboard() {
             />
             
             <div className="space-y-8">
-                {/* Welcome Section */}
+                {/* Enhanced Welcome Section */}
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-3xl font-bold text-slate-900 font-montserrat leading-none" style={{ fontSize: '2rem', lineHeight: '0.8' }}>
-                            Dashboard Overview
-                        </h2>
-                        <p className="text-slate-500 mt-1 font-montserrat" style={{marginTop: '1rem'}}></p>
-                    </div>
-                    {/* Year Filter */}
                     <div className="flex items-center gap-3">
-                        <label className="text-sm font-semibold text-slate-600 font-montserrat">
-                            Year
-                        </label>
-
-                        <div className="w-90 relative">
-                            {isLoading && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-xl z-10">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#Eb3505]"></div>
-                                </div>
-                            )}
-                            <select
-                                value={selectedYear}
-                                onChange={(e) => handleYearChange(e.target.value)}
-                                disabled={isLoading}
-                                className="w-full pl-2 pr-4 py-2.5  border border-slate-200 rounded-xl shadow-sm 
-                       focus:outline-none focus:ring-2 focus:ring-[#Eb3505] 
-                       focus:border-transparent font-montserrat text-sm 
-                       bg-white text-black hover:border-slate-300 transition disabled:opacity-50"
-                            >
-                                <option value="all">All Years</option>
-                                {getAvailableYears().map((year) => (
-                                    <option key={year} value={year}>
-                                        {year}
-                                    </option>
-                                ))}
-                            </select>
+                        <div>
+                            <h2 className="text-3xl font-bold text-slate-900 font-montserrat leading-none" style={{ fontSize: '2rem', lineHeight: '0.8' }}>
+                                Dashboard Overview
+                            </h2>
+                            <p className="text-slate-500 mt-1 font-montserrat" style={{marginTop: '1rem'}}>
+                                Welcome back! Here's what's happening with your projects today.
+                            </p>
+                        </div>
+                        <DashboardHelp />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {/* Year Filter */}
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-semibold text-slate-600 font-montserrat">
+                                Year
+                            </label>
+                            <div className="w-90 relative">
+                                {isLoading && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-xl z-10">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#Eb3505]"></div>
+                                    </div>
+                                )}
+                                <select
+                                    value={selectedYear}
+                                    onChange={(e) => handleYearChange(e.target.value)}
+                                    disabled={isLoading}
+                                    className="w-full pl-2 pr-4 py-2.5  border border-slate-200 rounded-xl shadow-sm 
+                           focus:outline-none focus:ring-2 focus:ring-[#Eb3505] 
+                           focus:border-transparent font-montserrat text-sm 
+                           bg-white text-black hover:border-slate-300 transition disabled:opacity-50"
+                                >
+                                    <option value="all">All Years</option>
+                                    {getAvailableYears().map((year) => (
+                                        <option key={year} value={year}>
+                                            {year}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                  
                 {/* KPI Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4" style={{marginTop: '.5rem'}}>
+                <div className="flex flex-nowrap gap-2 lg:gap-3 mt-4" style={{marginTop: '.5rem'}}>
                     {isLoading ? (
                         // Show skeleton cards while loading
                         <>
@@ -196,140 +244,150 @@ export default function Dashboard() {
                     ) : (
                         <>
                             {/* Total Projects Card */}
-                            <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-slate-200 relative group hover:shadow-xl transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-4 bg-indigo-50 rounded-2xl text-indigo-600 transition-colors group-hover:bg-indigo-100">
-                                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <h3 className="text-4xl font-black text-slate-900 font-montserrat tracking-tight">{safeStats.totalProjects}</h3>
-                                    <p className="text-sm font-bold font-montserrat" style={{color: '#010066'}}>Total Projects</p>
-                                </div>
-                            </div>
+                            <EnhancedKpiCard
+                                title="Total Projects"
+                                value={safeStats.totalProjects}
+                                icon={<ChartBarIcon className="w-6 h-6" />}
+                                color={{ bg: 'bg-indigo-50', text: 'text-indigo-600', hoverBg: 'bg-indigo-100' }}
+                                subtitle="Across all categories"
+                                onClick={() => router.get(route('projects.index'))}
+                            />
 
                             {/* Completed Projects Card */}
-                            <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-slate-200 relative group hover:shadow-xl transition-all" >
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 transition-colors group-hover:bg-blue-100">
-                                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <h3 className="text-4xl font-black text-slate-900 font-montserrat tracking-tight">{safeStats.completedProjects}</h3>
-                                    <p className="text-sm font-bold font-montserrat" style={{color: '#010066'}}>Completed Projects</p>
-                                </div>
-                            </div>
+                            <EnhancedKpiCard
+                                title="Completed Projects"
+                                value={safeStats.completedProjects}
+                                icon={<CheckCircleIcon className="w-6 h-6" />}
+                                color={{ bg: 'bg-blue-50', text: 'text-blue-600', hoverBg: 'bg-blue-100' }}
+                                subtitle={safeStats.totalProjects > 0 ? `${Math.round((safeStats.completedProjects / safeStats.totalProjects) * 100)}% completion rate` : 'No projects yet'}
+                            />
 
                             {/* Ongoing Projects Card */}
-                            <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-slate-200 relative group hover:shadow-xl transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-4 bg-orange-50 rounded-2xl text-orange-600 transition-colors group-hover:bg-orange-100">
-                                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <h3 className="text-4xl font-black text-slate-900 font-montserrat tracking-tight">{safeStats.ongoingProjects}</h3>
-                                    <p className="text-sm font-bold font-montserrat" style={{color: '#010066'}}>Ongoing Projects</p>
-                                </div>
-                            </div>
+                            <EnhancedKpiCard
+                                title="Ongoing Projects"
+                                value={safeStats.ongoingProjects}
+                                icon={<ClockIcon className="w-6 h-6" />}
+                                color={{ bg: 'bg-orange-50', text: 'text-orange-600', hoverBg: 'bg-orange-100' }}
+                                subtitle={safeStats.totalProjects > 0 ? `${Math.round((safeStats.ongoingProjects / safeStats.totalProjects) * 100)}% of total` : 'No ongoing projects'}
+                            />
 
                             {/* Pending Projects Card */}
-                            <div className="bg-white p-8 rounded-2xl shadow-lg border-2 border-slate-200 relative group hover:shadow-xl transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-4 bg-red-50 rounded-2xl text-red-600 transition-colors group-hover:bg-red-100">
-                                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <h3 className="text-4xl font-black text-slate-900 font-montserrat tracking-tight">{safeStats.pendingProjects}</h3>
-                                    <p className="text-sm font-bold font-montserrat" style={{color: '#010066'}}>Pending Projects</p>
-                                </div>
-                            </div>
+                            <EnhancedKpiCard
+                                title="Pending Projects"
+                                value={safeStats.pendingProjects}
+                                icon={<ExclamationCircleIcon className="w-6 h-6" />}
+                                color={{ bg: 'bg-red-50', text: 'text-red-600', hoverBg: 'bg-red-100' }}
+                                subtitle="Needs attention"
+                                onClick={() => router.get(route('projects.index', { status: 'pending' }))}
+                            />
                         </>
                     )}
                 </div>
 
-                {/* Project Status Distribution and Recent Projects Section */}
+                {/* Enhanced Project Status Distribution and Recent Projects Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6" style={{marginTop: '.8rem'}}>
-                    {/* Project Status Distribution Card */}
+                    {/* Enhanced Project Status Distribution Card */}
                     <div className="lg:col-span-2">
                         <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 h-full flex flex-col shadow-lg relative group hover:shadow-xl transition-all">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4">Project Status Distribution</h3>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-bold text-slate-800">Project Status Distribution</h3>
+                                <span className="text-sm text-slate-500">
+                                    {safeStats.totalProjects} total projects
+                                </span>
+                            </div>
                             <div className="space-y-4 flex-1">
                                 {isLoading ? (
                                     <StatusSkeleton />
                                 ) : (
                                     <>
                                         {/* Completed Bar */}
-                                        <div>
-                                            <div className="flex justify-between text-sm mb-2">
-                                                <span className="text-blue-700 font-semibold">Completed</span>
-                                                <span className="text-blue-700 font-bold">{safeStats.completedProjects}</span>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircleIcon className="w-4 h-4 text-blue-600" />
+                                                    <span className="text-sm font-semibold text-blue-700">Completed</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-bold text-blue-700">{safeStats.completedProjects}</span>
+                                                    <span className="text-xs text-slate-500">
+                                                        ({safeStats.totalProjects > 0 ? Math.round((safeStats.completedProjects / safeStats.totalProjects) * 100) : 0}%)
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="w-full bg-blue-200 rounded-full h-8 relative overflow-hidden">
+                                            <div className="w-full bg-blue-100 rounded-full h-6 relative overflow-hidden border border-blue-200">
                                                 <div
-                                                    className="bg-blue-500 h-full rounded-full transition-all duration-500 min-w-[2rem]"
+                                                    className="bg-blue-600 h-full rounded-full transition-all duration-700 ease-out shadow-lg border border-blue-400"
                                                     style={{
                                                         width: `${Math.max(2, safeStats.totalProjects > 0 ? (safeStats.completedProjects / safeStats.totalProjects) * 100 : 2)}%`,
-                                                        backgroundColor: '#3b82f6'
                                                     }}
                                                 >
                                                 </div>
-                                                <span className="absolute inset-0 flex items-center justify-center text-black text-xs font-bold">
-                                                    {safeStats.totalProjects > 0 ? Math.round((safeStats.completedProjects / safeStats.totalProjects) * 100) : 0}%
-                                                </span>
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <span className="text-black text-xs font-bold">
+                                                        {safeStats.totalProjects > 0 ? Math.round((safeStats.completedProjects / safeStats.totalProjects) * 100) : 0}%
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
 
-                                {/* Ongoing Bar */}
-                                <div>
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="text-orange-700 font-semibold">Ongoing</span>
-                                        <span className="text-orange-700 font-bold">{safeStats.ongoingProjects}</span>
-                                    </div>
-                                    <div className="w-full bg-orange-200 rounded-full h-8 relative overflow-hidden">
-                                        <div
-                                            className="bg-orange-500 h-full rounded-full transition-all duration-500 min-w-[2rem]"
-                                            style={{
-                                                width: `${Math.max(2, safeStats.totalProjects > 0 ? (safeStats.ongoingProjects / safeStats.totalProjects) * 100 : 2)}%`,
-                                                backgroundColor: '#f97316'
-                                            }}
-                                        >
+                                        {/* Ongoing Bar */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <ClockIcon className="w-4 h-4 text-orange-600" />
+                                                    <span className="text-sm font-semibold text-orange-700">Ongoing</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-bold text-orange-700">{safeStats.ongoingProjects}</span>
+                                                    <span className="text-xs text-slate-500">
+                                                        ({safeStats.totalProjects > 0 ? Math.round((safeStats.ongoingProjects / safeStats.totalProjects) * 100) : 0}%)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="w-full bg-orange-100 rounded-full h-6 relative overflow-hidden border border-orange-200">
+                                                <div
+                                                    className="bg-green-600 h-full rounded-full transition-all duration-700 ease-out shadow-lg border border-green-400"
+                                                    style={{
+                                                        width: `${Math.max(2, safeStats.totalProjects > 0 ? (safeStats.ongoingProjects / safeStats.totalProjects) * 100 : 2)}%`,
+                                                    }}
+                                                >
+                                                </div>
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <span className="text-black text-xs font-bold">
+                                                        {safeStats.totalProjects > 0 ? Math.round((safeStats.ongoingProjects / safeStats.totalProjects) * 100) : 0}%
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <span className="absolute inset-0 flex items-center justify-center text-black text-xs font-bold">
-                                            {safeStats.totalProjects > 0 ? Math.round((safeStats.ongoingProjects / safeStats.totalProjects) * 100) : 0}%
-                                        </span>
-                                    </div>
-                                </div>
 
-                                {/* Pending Bar */}
-                                <div>
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="text-red-700 font-semibold">Pending</span>
-                                        <span className="text-red-700 font-bold">{safeStats.pendingProjects}</span>
-                                    </div>
-                                    <div className="w-full bg-red-200 rounded-full h-8 relative overflow-hidden">
-                                        <div
-                                            className="bg-red-500 h-full rounded-full transition-all duration-500 min-w-[2rem]"
-                                            style={{
-                                                width: `${Math.max(2, safeStats.totalProjects > 0 ? (safeStats.pendingProjects / safeStats.totalProjects) * 100 : 2)}%`,
-                                                backgroundColor: '#ef4444'
-                                            }}
-                                        >
-                                        </div>
-                                        <span className="absolute inset-0 flex items-center justify-center text-black text-xs font-bold">
-                                            {safeStats.totalProjects > 0 ? Math.round((safeStats.pendingProjects / safeStats.totalProjects) * 100) : 0}%
-                                        </span>
-                                    </div>
+                                        {/* Pending Bar */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <ExclamationCircleIcon className="w-4 h-4 text-red-600" />
+                                                    <span className="text-sm font-semibold text-red-700">Pending</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-bold text-red-700">{safeStats.pendingProjects}</span>
+                                                    <span className="text-xs text-slate-500">
+                                                        ({safeStats.totalProjects > 0 ? Math.round((safeStats.pendingProjects / safeStats.totalProjects) * 100) : 0}%)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="w-full bg-red-100 rounded-full h-6 relative overflow-hidden border border-red-200">
+                                                <div
+                                                    className="bg-orange-600 h-full rounded-full transition-all duration-700 ease-out shadow-lg border border-orange-400"
+                                                    style={{
+                                                        width: `${Math.max(2, safeStats.totalProjects > 0 ? (safeStats.pendingProjects / safeStats.totalProjects) * 100 : 2)}%`,
+                                                    }}
+                                                >
+                                                </div>
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <span className="text-black text-xs font-bold">
+                                                        {safeStats.totalProjects > 0 ? Math.round((safeStats.pendingProjects / safeStats.totalProjects) * 100) : 0}%
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </>
                                 )}

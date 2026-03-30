@@ -42,6 +42,7 @@ class GalleryController extends Controller
                             'document' => $image->document,
                             'caption' => $image->caption ?? null,
                             'created_at' => $image->created_at,
+                            'document_date' => $image->document_date,
                         ];
                     }),
                     'updated_at' => $project->updated_at,

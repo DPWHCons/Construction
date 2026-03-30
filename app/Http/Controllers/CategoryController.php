@@ -16,11 +16,12 @@ class CategoryController extends Controller
         $search = $request->get('search');
         $status = $request->get('status');
         
-        // Create cache key based on filters
+        // Create cache key based on filters and page number
         $cacheKey = "categories_" . md5(serialize([
             'year' => $year,
             'search' => $search,
-            'status' => $status
+            'status' => $status,
+            'page' => $request->get('page', 1)
         ]));
         
         // Cache categories for 1 hour (3600 seconds)
@@ -67,8 +68,8 @@ class CategoryController extends Controller
                 $query->withCount('projects');
             }
             
-            // Get paginated results (10 per page) with FIFO ordering
-            return $query->orderBy('created_at', 'asc')->paginate(10);
+            // Get paginated results (10 per page) with newest first ordering
+            return $query->orderBy('created_at', 'desc')->paginate(10);
         });
         
         // Cache total projects count for 30 minutes
@@ -238,7 +239,33 @@ class CategoryController extends Controller
      */
     private function clearCategoryCaches()
     {
-        // Clear all caches by flushing (simpler and driver-agnostic)
-        Cache::flush();
+        // Clear only category-related caches by pattern
+        $cache = Cache::getFacadeRoot();
+        if (method_exists($cache, 'getStore')) {
+            $store = $cache->getStore();
+            if (method_exists($store, 'getPrefix')) {
+                $prefix = $store->getPrefix();
+            }
+        }
+        
+        // Clear caches with 'categories_' prefix
+        if (function_exists('cache')) {
+            // Try to clear by pattern if supported
+            try {
+                $redis = Cache::getRedis();
+                if ($redis) {
+                    $keys = $redis->keys('categories_*');
+                    if (!empty($keys)) {
+                        $redis->del($keys);
+                    }
+                }
+            } catch (\Exception $e) {
+                // Fallback to flush all caches if selective clearing fails
+                Cache::flush();
+            }
+        } else {
+            // Fallback to flush all caches
+            Cache::flush();
+        }
     }
 }

@@ -108,15 +108,41 @@ class ContractorController extends Controller
      */
     public function update(Request $request, $contractorName)
     {
-        // Update contractor names in project_scopes
-        if ($request->has('new_name')) {
-            DB::table('project_scopes')
-                ->where('contractor_name', $contractorName)
-                ->update(['contractor_name' => $request->new_name]);
+        // Validate input
+        $validated = $request->validate([
+            'new_name' => 'required|string|max:255|min:2',
+        ]);
+        
+        // Check if new name is different from current name
+        if ($validated['new_name'] === $contractorName) {
+            return redirect()->route('contractors.index')
+                ->with('info', 'No changes made to contractor name.');
         }
-
-        return redirect()->route('contractors.index')
-            ->with('success', 'Contractor name updated successfully.');
+        
+        try {
+            // Check if new name already exists
+            $existing = DB::table('project_scopes')
+                ->where('contractor_name', $validated['new_name'])
+                ->where('contractor_name', '!=', $contractorName)
+                ->exists();
+            
+            if ($existing) {
+                return redirect()->route('contractors.index')
+                    ->with('error', 'A contractor with this name already exists.');
+            }
+            
+            // Update contractor names in project_scopes
+            $updatedCount = DB::table('project_scopes')
+                ->where('contractor_name', $contractorName)
+                ->update(['contractor_name' => $validated['new_name']]);
+            
+            return redirect()->route('contractors.index')
+                ->with('success', "Contractor '{$contractorName}' renamed to '{$validated['new_name']}'. {$updatedCount} records updated.");
+        } catch (\Exception $e) {
+            \Log::error('Error updating contractor', ['error' => $e->getMessage()]);
+            return redirect()->route('contractors.index')
+                ->with('error', 'Failed to update contractor: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -124,13 +150,29 @@ class ContractorController extends Controller
      */
     public function destroy($contractorName)
     {
-        // Clear contractor name from project_scopes (set to null/empty)
-        DB::table('project_scopes')
-            ->where('contractor_name', $contractorName)
-            ->update(['contractor_name' => null]);
+        try {
+            // Validate contractor exists
+            $exists = DB::table('project_scopes')
+                ->where('contractor_name', $contractorName)
+                ->exists();
+            
+            if (!$exists) {
+                return redirect()->route('contractors.index')
+                    ->with('error', 'Contractor not found.');
+            }
+            
+            // Clear contractor name from project_scopes (set to null/empty)
+            $updatedCount = DB::table('project_scopes')
+                ->where('contractor_name', $contractorName)
+                ->update(['contractor_name' => null]);
 
-        return redirect()->route('contractors.index')
-            ->with('success', 'Contractor removed from project scopes.');
+            return redirect()->route('contractors.index')
+                ->with('success', "Contractor '{$contractorName}' removed from {$updatedCount} project records.");
+        } catch (\Exception $e) {
+            \Log::error('Error deleting contractor', ['error' => $e->getMessage()]);
+            return redirect()->route('contractors.index')
+                ->with('error', 'Failed to remove contractor: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -138,16 +180,33 @@ class ContractorController extends Controller
      */
     public function archive($contractorName)
     {
-        // Archive all project_scopes records for this contractor
-        $updatedCount = DB::table('project_scopes')
-            ->where('contractor_name', $contractorName)
-            ->update([
-                'is_archived' => true,
-                'archived_at' => now(),
-            ]);
+        try {
+            // Validate contractor exists
+            $exists = DB::table('project_scopes')
+                ->where('contractor_name', $contractorName)
+                ->where('is_archived', false)
+                ->exists();
+            
+            if (!$exists) {
+                return redirect()->route('contractors.index')
+                    ->with('error', 'Contractor not found or already archived.');
+            }
+            
+            // Archive all project_scopes records for this contractor
+            $updatedCount = DB::table('project_scopes')
+                ->where('contractor_name', $contractorName)
+                ->update([
+                    'is_archived' => true,
+                    'archived_at' => now(),
+                ]);
 
-        return redirect()->route('contractors.index')
-            ->with('success', "Contractor '{$contractorName}' archived successfully. {$updatedCount} records updated.");
+            return redirect()->route('contractors.index')
+                ->with('success', "Contractor '{$contractorName}' archived successfully. {$updatedCount} records updated.");
+        } catch (\Exception $e) {
+            \Log::error('Error archiving contractor', ['error' => $e->getMessage()]);
+            return redirect()->route('contractors.index')
+                ->with('error', 'Failed to archive contractor: ' . $e->getMessage());
+        }
     }
 
     /**

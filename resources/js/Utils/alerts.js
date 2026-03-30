@@ -25,66 +25,67 @@ style.textContent = `
             opacity: 0;
         }
     }
-    
-    /* Custom styles for left-right button layout */
-    .swal2-restore-actions {
-        display: flex !important;
-        justify-content: space-between !important;
-        width: 100% !important;
-        gap: 1rem !important;
+
+    @keyframes fade-in-scale {
+        from {
+            transform: scale(0.95);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes fade-out-scale {
+        from {
+            transform: scale(1);
+            opacity: 1;
+        }
+        to {
+            transform: scale(0.95);
+            opacity: 0;
+        }
     }
     
-    .swal2-restore-confirm {
-        order: 2 !important;
-        margin-left: auto !important;
+    .animate-fade-in-scale {
+        animation: fade-in-scale 0.25s ease-out !important;
     }
-    
-    .swal2-restore-cancel {
-        order: 1 !important;
-        margin-right: auto !important;
-    }
-    
-    .swal2-restore-popup .swal2-actions {
-        padding: 0 1.5rem 1.5rem 1.5rem !important;
-    }
-    
-    .animate-slide-in-right {
-        animation: slide-in-right 0.3s ease-out;
-    }
-    
-    .animate-slide-out-right {
-        animation: slide-out-right 0.3s ease-in;
+
+    .animate-fade-out-scale {
+        animation: fade-out-scale 0.2s ease-in !important;
     }
 `;
 document.head.appendChild(style);
 
-// SweetAlert2: modern, minimal, "Apple-like" defaults
+// Modern, minimal design defaults
 const appleSwal = Swal.mixin({
     buttonsStyling: false,
     heightAuto: false,
     focusConfirm: false,
-    backdrop: 'rgba(15, 23, 42, 0.55)',
+    allowOutsideClick: false,
+    backdrop: 'rgba(15, 23, 42, 0.4)',
     showClass: {
-        popup: 'swal2-show',
+        popup: 'animate-fade-in-scale',
         backdrop: 'swal2-backdrop-show',
     },
     hideClass: {
-        popup: 'swal2-hide',
+        popup: 'animate-fade-out-scale',
         backdrop: 'swal2-backdrop-hide',
     },
     customClass: {
-        popup: 'rounded-2xl shadow-[0_30px_80px_rgba(0,0,0,0.22)] border border-black/5 bg-white/95 backdrop-blur-md',
-        title: 'text-[17px] font-semibold text-slate-900 tracking-[-0.01em] font-sans',
-        htmlContainer: 'text-[13px] leading-5 text-slate-600 text-left font-sans',
-        actions: 'gap-2 mt-5',
+        popup: 'rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.18)] border border-slate-100 bg-white',
+        title: 'text-base font-semibold text-slate-900 tracking-tight font-sans',
+        htmlContainer: 'text-sm text-slate-600 text-center font-sans mt-2',
+        actions: 'gap-3 mt-6',
         confirmButton:
-            'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-900 text-white hover:bg-black transition-colors',
+            'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-black transition-all duration-150 active:scale-95',
         cancelButton:
-            'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors',
+            'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all duration-150 active:scale-95',
         denyButton:
-            'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors',
+            'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all duration-150 active:scale-95',
         input:
-            'mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300',
+            'mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900',
     },
 });
 
@@ -98,8 +99,9 @@ export const showSuccessToast = (message) => {
         style: {
             background: '#ffffff',
             color: '#000000',
-            border: '1px solid #10b981',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+            borderRadius: '0.75rem',
         },
         iconTheme: {
             primary: '#10b981',
@@ -115,8 +117,9 @@ export const showErrorToast = (message) => {
         style: {
             background: '#ffffff',
             color: '#000000',
-            border: '1px solid #ef4444',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+            borderRadius: '0.75rem',
         },
         iconTheme: {
             primary: '#ef4444',
@@ -133,8 +136,9 @@ export const showInfoToast = (message) => {
         style: {
             background: '#ffffff',
             color: '#000000',
-            border: '1px solid #3b82f6',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+            borderRadius: '0.75rem',
         },
         iconTheme: {
             primary: '#3b82f6',
@@ -143,98 +147,64 @@ export const showInfoToast = (message) => {
     });
 };
 
-// SweetAlert confirmations
+// SweetAlert confirmations - MODERNIZED & MINIMAL
 export const showDeleteConfirmation = (itemName, itemType = 'item') => {
     return appleSwal.fire({
         title: `Delete ${itemType}?`,
-        html: `
-            <div class="space-y-3">
-                <p class="text-slate-700">
-                    Are you sure you want to permanently delete <span class="font-semibold text-slate-900">"${itemName}"</span>?
-                </p>
-                <div class="rounded-xl border border-red-200/70 bg-red-50/70 p-3">
-                    <div class="flex items-start gap-2">
-                        <svg class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                        </svg>
-                        <div>
-                            <h4 class="text-red-900 font-semibold">This action cannot be undone.</h4>
-                            <p class="text-red-800 text-sm">The ${itemType} will be permanently deleted.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `,
+        html: `Delete <strong>"${itemName}"</strong>? This cannot be undone.`,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Delete Forever',
+        confirmButtonText: 'Delete',
         cancelButtonText: 'Cancel',
-        reverseButtons: false,
+        reverseButtons: true,
         customClass: {
-            popup: 'swal2-restore-popup',
-            actions: 'swal2-restore-actions',
             confirmButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors swal2-restore-confirm',
-            cancelButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors swal2-restore-cancel',
+                'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition-all duration-150 active:scale-95',
         },
     });
 };
 
 export const showProjectArchiveConfirmation = (projectName) => {
     return appleSwal.fire({
-        title: 'Archive Project?',
-        text: `Are you sure to archive this project?\n\n"${projectName}"`,
-        icon: 'question',
+        title: 'Archive project?',
+        html: `
+            <div class="space-y-4">
+                <p class="text-sm text-slate-600">
+                    Move <strong class="text-slate-900">"${projectName}"</strong> to archive?
+                </p>
+                <div class="flex items-center justify-center gap-2 pt-2">
+                    <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        </svg>
+                    </div>
+                    <p class="text-xs text-slate-500">Can be restored anytime</p>
+                </div>
+            </div>
+        `,
+        icon: false,
         showCancelButton: true,
-        confirmButtonText: 'Archive',
+        confirmButtonText: 'Proceed',
         cancelButtonText: 'Cancel',
         reverseButtons: true,
         customClass: {
-            popup: 'rounded-2xl shadow-[0_30px_80px_rgba(0,0,0,0.22)] border border-black/5 bg-white/95 backdrop-blur-md',
-            title: 'text-[17px] font-semibold text-slate-900 tracking-[-0.01em] font-sans',
-            htmlContainer: 'text-[13px] leading-5 text-slate-600 text-left font-sans',
-            actions: 'gap-2 mt-5',
+            popup: 'rounded-2xl',
+            actions: 'gap-3 !justify-between',
             confirmButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-colors',
-            cancelButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors',
+                'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-all duration-150 active:scale-95',
+            cancelButton: 'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-all duration-150 active:scale-95',
         },
     });
 };
 
 export const showArchiveConfirmation = (itemName, projectCount = 0) => {
-    const hasProjects = projectCount > 0;
+    const warningText = projectCount > 0 
+        ? `<br><span class="text-xs text-slate-500 mt-1 block">Has ${projectCount} project${projectCount > 1 ? 's' : ''} — they'll become uncategorized.</span>`
+        : '';
 
     return appleSwal.fire({
         title: 'Archive category?',
-        html: `
-            <div class="space-y-4">
-                <p class="text-slate-700">
-                    Archive <span class="font-semibold text-slate-900">"${itemName}"</span>?
-                </p>
-                ${hasProjects ? `
-                    <div class="rounded-xl border border-amber-200/70 bg-amber-50/70 p-4">
-                        <div class="flex items-start gap-3">
-                            <div class="flex-shrink-0">
-                                <svg class="w-6 h-6 text-amber-600" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                                </svg>
-                            </div>
-                            <div class="flex-1">
-                                <h4 class="text-amber-900 font-semibold">Proceed with caution</h4>
-                                <p class="text-amber-800 text-sm mt-1">
-                                    Category has currently <span class="font-bold">${projectCount}</span> active/recorded project${projectCount > 1 ? 's' : ''}.
-                                </p>
-                                <p class="text-amber-700 text-xs mt-2">
-                                    Projects won't be deleted, but they'll become uncategorized.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
-            </div>
-        `,
+        html: `Archive <strong>"${itemName}"</strong>?${warningText}`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Archive',
@@ -242,45 +212,23 @@ export const showArchiveConfirmation = (itemName, projectCount = 0) => {
         reverseButtons: true,
         customClass: {
             confirmButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-[#Eb3505] text-white hover:opacity-95 transition-opacity',
+                'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-all duration-150 active:scale-95',
         },
     });
 };
 
 export const showRestoreConfirmation = (itemName) => {
     return appleSwal.fire({
-        title: 'Restore category?',
-        html: `
-            <div class="space-y-3">
-                <p class="text-slate-700">
-                    Restore <span class="font-semibold text-slate-900">"${itemName}"</span>?
-                </p>
-                <div class="rounded-xl border border-emerald-200/70 bg-emerald-50/70 p-3">
-                    <div class="flex items-start gap-2">
-                        <svg class="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                        </svg>
-                        <div>
-                            <h4 class="text-emerald-900 font-semibold">Ready to restore.</h4>
-                            <p class="text-emerald-800 text-sm">This category will be available again.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `,
+        title: 'Restore?',
+        html: `Restore <strong>"${itemName}"</strong>?`,
         icon: 'question',
         showCancelButton: true,
-        cancelButtonText: 'Cancel',
         confirmButtonText: 'Restore',
-        reverseButtons: false, // Changed to false to keep original order
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
         customClass: {
-            popup: 'swal2-restore-popup',
-            actions: 'swal2-restore-actions',
-
-            cancelButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors swal2-restore-cancel',
             confirmButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors swal2-restore-confirm',
+                'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all duration-150 active:scale-95',
         },
     });
 };
@@ -288,24 +236,7 @@ export const showRestoreConfirmation = (itemName) => {
 export const showEditConfirmation = (itemName, itemType = 'item') => {
     return appleSwal.fire({
         title: `Edit ${itemType}?`,
-        html: `
-            <div class="space-y-3">
-                <p class="text-slate-700">
-                    Edit <span class="font-semibold text-slate-900">"${itemName}"</span>?
-                </p>
-                <div class="rounded-xl border border-blue-200/70 bg-blue-50/70 p-3">
-                    <div class="flex items-start gap-2">
-                        <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-                        </svg>
-                        <div>
-                            <h4 class="text-blue-900 font-semibold">You’re about to edit.</h4>
-                            <p class="text-blue-800 text-sm">You can update the ${itemType} details next.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `,
+        html: `Edit <strong>"${itemName}"</strong>?`,
         icon: 'info',
         showCancelButton: true,
         confirmButtonText: 'Continue',
@@ -313,7 +244,7 @@ export const showEditConfirmation = (itemName, itemType = 'item') => {
         reverseButtons: true,
         customClass: {
             confirmButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors',
+                'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all duration-150 active:scale-95',
         },
     });
 };
@@ -336,40 +267,13 @@ export const showImportConfirmation = (imported, failed = 0) => {
             popup: 'animate-slide-out-right',
         },
         customClass: {
-            popup: 'rounded-xl shadow-lg border-0 bg-white/95 backdrop-blur-sm p-4 min-w-[280px]',
-            title: `text-base font-semibold ${isSuccess ? 'text-emerald-700' : 'text-red-700'}`,
-            htmlContainer: `text-sm ${isSuccess ? 'text-slate-700' : 'text-slate-700'}`,
-            actions: 'mt-3',
+            popup: 'rounded-lg shadow-lg border border-slate-100 bg-white p-4 min-w-[280px]',
+            title: `text-sm font-semibold ${isSuccess ? 'text-emerald-700' : 'text-red-700'}`,
+            htmlContainer: 'text-xs text-slate-600 mt-1',
         },
-        html: `
-            <div class="flex items-center gap-3">
-                <div class="flex-shrink-0">
-                    ${isSuccess ?
-                `<div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                            </svg>
-                        </div>` :
-                `<div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                            </svg>
-                        </div>`
-            }
-                </div>
-                <div class="flex-1">
-                    <div class="font-semibold text-slate-900">
-                        ${isSuccess ? 'Import Successful' : 'Import Failed'}
-                    </div>
-                    <div class="text-sm ${isSuccess ? 'text-emerald-600' : 'text-slate-600'}">
-                        ${isSuccess ?
-                `Successfully imported ${imported} project${imported !== 1 ? 's' : ''}` :
-                `${failed} project${failed !== 1 ? 's' : ''} failed to import`
-            }
-                    </div>
-                </div>
-            </div>
-        `,
+        icon: isSuccess ? 'success' : 'error',
+        title: isSuccess ? 'Import successful' : 'Import failed',
+        html: `${imported} project${imported !== 1 ? 's' : ''} imported${!isSuccess ? `, ${failed} failed` : ''}`,
     });
 };
 
@@ -394,13 +298,5 @@ export const showErrorMessage = (title, message) => {
         timer: AUTO_DISMISS_MS,
         timerProgressBar: true,
         showConfirmButton: false,
-        customClass: {
-            popup: 'rounded-2xl shadow-[0_30px_80px_rgba(0,0,0,0.22)] border border-black/5 bg-white/95 backdrop-blur-md',
-            title: 'text-[17px] font-semibold text-slate-900 tracking-[-0.01em] font-sans',
-            htmlContainer: 'text-[13px] leading-5 text-slate-600 text-left font-sans',
-            actions: 'gap-2 mt-5',
-            confirmButton:
-                'inline-flex items-center justify-center px-4 py-2 rounded-xl text-[13px] font-semibold bg-slate-900 text-white hover:bg-black transition-colors',
-        },
     });
 };

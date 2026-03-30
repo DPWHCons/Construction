@@ -1,11 +1,12 @@
 import PageLayout from '@/Layouts/PageLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import { showSuccessToast, showErrorToast } from '@/Utils/alerts';
 import EditCategoryModal from '@/Components/EditCategoryModal';
+import CreateCategoryModal from '@/Components/CreateCategoryModal';
 import FeedbackAlert from '@/Components/FeedbackAlert';
-import DPWHLoading from '@/Components/DPWHLoading';
+import CategoriesTableSkeleton from '@/Components/CategoriesTableSkeleton';
 
 export default function Categories() {
     const { categories, totalProjects, selectedYear: initialYear } = usePage().props;
@@ -14,6 +15,7 @@ export default function Categories() {
     const [selectedYear, setSelectedYear] = useState(initialYear || 'all');
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingCategory, setEditingCategory] = useState(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const [archiveAlert, setArchiveAlert] = useState({
         show: false,
         category: null,
@@ -21,6 +23,8 @@ export default function Categories() {
         projectCount: 0
     });
     const [isLoading, setIsLoading] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
+    const debounceRef = useRef(null);
 
     const handleArchive = (category) => {
         const hasProjects = category.projects_count > 0;
@@ -52,18 +56,43 @@ export default function Categories() {
         });
     };
 
-    const handleSearch = (term) => {
+    const handleSearch = useCallback((term) => {
         setSearchTerm(term);
-        setIsLoading(true);
-        router.get(route('categories.index'), {
-            search: term || null,
-            year: selectedYear === 'all' ? null : selectedYear
-        }, { 
-            preserveState: true, 
-            replace: true,
-            onFinish: () => setIsLoading(false)
-        });
-    };
+
+        // Clear existing timeout
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+        }
+
+        // Set searching state immediately for visual feedback
+        setIsSearching(true);
+
+        // Don't set loading immediately - wait for debounce
+        debounceRef.current = setTimeout(() => {
+            setIsLoading(true);
+            router.get(route('categories.index'), {
+                search: term || null,
+                year: selectedYear === 'all' ? null : selectedYear
+            }, { 
+                preserveState: true, 
+                preserveScroll: true,
+                replace: true,
+                onFinish: () => {
+                    setIsLoading(false);
+                    setIsSearching(false);
+                }
+            });
+        }, 400); // Wait 400ms after typing stops
+    }, [selectedYear]);
+
+    // Cleanup debounce timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
+    }, []);
 
     const handleYearChange = (year) => {
         setSelectedYear(year);
@@ -73,23 +102,11 @@ export default function Categories() {
             year: year === 'all' ? null : year
         }, { 
             preserveState: true, 
+            preserveScroll: true,
             replace: true,
             onFinish: () => setIsLoading(false)
         });
     };
-
-    // Search Input Component
-    const SearchInput = ({ placeholder, value, onChange, className = "" }) => (
-        <div className="relative">
-            <input
-                type="text"
-                placeholder={placeholder}
-                value={value}
-                onChange={onChange}
-                className={`pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent font-montserrat text-sm w-64 ${className}`}
-            />
-        </div>
-    );
 
     // Get available years for filter - extract from categories data
     const getAvailableYears = () => {
@@ -122,6 +139,7 @@ export default function Categories() {
         setIsLoading(true);
         router.get(route('categories.index'), {}, { 
             preserveState: true, 
+            preserveScroll: true,
             replace: true,
             onFinish: () => setIsLoading(false)
         });
@@ -140,15 +158,15 @@ export default function Categories() {
                         </h2>
                     </div>
                     <div className="flex space-x-3">
-                        <Link
-                            href={route('categories.create')}
+                        <button
+                            onClick={() => setShowCreateModal(true)}
                             className="inline-flex items-center px-4 py-2 bg-[#Eb3505] text-white rounded-xl text-sm font-semibold shadow-md hover:bg-[#d12e04] transition-all font-montserrat"
                         >
                             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                             </svg>
                             Add Category
-                        </Link>
+                        </button>
                     </div>
                 </div>
 
@@ -158,12 +176,18 @@ export default function Categories() {
                         <h3 className="text-2xl font-bold text-slate-800 font-montserrat"> </h3>
                         <div className="flex items-center gap-3">
                             {/* Search Input */}
-                            <SearchInput 
-                                placeholder="Search categories..."
-                                value={searchTerm}
-                                onChange={(e) => handleSearch(e.target.value)}
-                            />
-                            
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                </div>
+                                <input
+                                    key="search-input"
+                                    type="text"
+                                    placeholder="Search categories..."
+                                    value={searchTerm}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent font-montserrat text-sm w-64"
+                                />
+                            </div>
                             {/* Year Filter */}
                             <select
                                 value={selectedYear}
@@ -172,13 +196,12 @@ export default function Categories() {
                                 style={{width: '120px'}}
                             >
                                 <option value="all">All Years</option>
-                                {getAvailableYears().map(year => (
+                                {getAvailableYears().map((year) => (
                                     <option key={year} value={year}>
                                         {year}
                                     </option>
                                 ))}
                             </select>
-                            
                             {/* Clear Button */}
                             <button
                                 onClick={clearAllFilters}
@@ -194,29 +217,33 @@ export default function Categories() {
                         </div>
                     </div>
 
-                    <div className="border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left bg-white">
+                    {/* Show skeleton when loading, otherwise show actual table */}
+                    {isLoading ? (
+                        <CategoriesTableSkeleton rows={10} />
+                    ) : (
+                        <div className="border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left bg-white">
 
-                                {/* Header */}
-                                <thead className="bg-slate-50 border-b border-slate-200">
-                                    <tr>
-                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
-                                            Category Name
-                                        </th>
+                                    {/* Header */}
+                                    <thead className="bg-slate-50 border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
+                                                Category Name
+                                            </th>
 
-                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider text-center">
-                                            Total Projects
-                                        </th>
+                                            <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider text-center">
+                                                Total Projects
+                                            </th>
 
-                                        <th className="px-6 py-4 text-center font-semibold text-slate-700 uppercase tracking-wider">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
+                                            <th className="px-6 py-4 text-center font-semibold text-slate-700 uppercase tracking-wider">
+                                                Actions
+                                            </th>
+                                        </tr>
+                                    </thead>
 
-                                {/* Body */}
-                                <tbody className="divide-y divide-slate-100">
+                                    {/* Body */}
+                                    <tbody className="divide-y divide-slate-100">
                                     {categories?.data?.map((category) => (
                                         <tr
                                             key={category.id}
@@ -279,6 +306,7 @@ export default function Categories() {
                             </table>
                         </div>
                     </div>
+                    )}
 
                     {/* Pagination */}
                     {categories?.data && categories.data.length > 0 && (
@@ -447,13 +475,16 @@ export default function Categories() {
                     }}
                 />
 
-                {/* Global Loading Indicator */}
-                {isLoading && (
-                    <DPWHLoading
-                        message="Processing..."
-                        subMessage="Please wait while we process your request"
-                    />
-                )}
+                {/* Create Category Modal */}
+                <CreateCategoryModal
+                    show={showCreateModal}
+                    onClose={() => setShowCreateModal(false)}
+                    onCreate={() => {
+                        // Refresh the categories list
+                        setIsLoading(true);
+                        router.reload({ only: ['categories'], onFinish: () => setIsLoading(false) });
+                    }}
+                />
             </div>
         </PageLayout>
     );

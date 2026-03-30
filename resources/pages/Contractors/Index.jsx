@@ -56,17 +56,6 @@ export default function Contractors() {
                             Contractors Overview
                         </h2>
                     </div>
-                    <div className="flex space-x-3">
-                        <Link
-                            href={route('contractors.create')}
-                            className="inline-flex items-center px-4 py-2 bg-[#Eb3505] text-white rounded-xl text-sm font-semibold shadow-md hover:bg-[#d12e04] transition-all font-montserrat"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            Add Contractor
-                        </Link>
-                    </div>
                 </div>
 
                 {/* Contractors Table */}

@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProjectExportController;
 use App\Http\Controllers\ProjectController;
@@ -8,9 +7,7 @@ use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ContractorController;
 use App\Http\Controllers\GalleryController;
-use App\Http\Controllers\ImageController;
 use App\Http\Controllers\DocumentController;
-use App\Http\Controllers\DebugController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -21,17 +18,6 @@ Route::get('/landing', [ProjectController::class, 'landing'])->name('landing');
 Route::get('/', function () {
     return redirect()->route('landing');
 });
-
-// Debug routes (temporary for debugging)
-Route::get('/test-db', [DebugController::class, 'testDatabase']);
-Route::post('/test-image-upload', [DebugController::class, 'testImageUpload']);
-Route::get('/test-upload', function () {
-    return view('test_upload');
-});
-Route::get('/debug-dashboard', [App\Http\Controllers\DebugDashboardController::class, 'index']);
-
-// Image serving route (publicly accessible for display)
-Route::get('/images/{id}', [ImageController::class, 'show'])->name('images.show');
 
 // Document download route (publicly accessible for download)
 Route::get('/documents/{id}/download', [DocumentController::class, 'download'])->name('documents.download');
@@ -51,10 +37,6 @@ Route::middleware(['auth', 'session.activity'])->group(function () {
 });
 
 Route::middleware(['auth', 'session.activity'])->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
     // Project Export Routes
     Route::get('/projects/export', [ProjectExportController::class, 'export'])->name('projects.export');
     Route::post('/projects/import', [ProjectExportController::class, 'import'])->name('projects.import');

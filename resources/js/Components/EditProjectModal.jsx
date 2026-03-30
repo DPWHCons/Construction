@@ -74,6 +74,7 @@ export default function EditProjectModal({ show, onClose, project, categories = 
         // Documents
         images: [],
         removed_images: [],
+        document_dates: [],
     });
 
     // Update form data when project changes
@@ -158,6 +159,7 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                     // Documents
                     images: [],
                     removed_images: [],
+                    document_dates: [],
                 };
                 
                 setData(formData);
@@ -207,12 +209,13 @@ export default function EditProjectModal({ show, onClose, project, categories = 
         const newDocuments = [...documents, ...files];
         const newPreviews = [...documentPreviews];
         
-        files.forEach(file => {
+        files.forEach((file, index) => {
             // Create preview info for Word documents
             const previewInfo = {
                 name: file.name,
                 size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-                type: file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                type: file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                date: new Date().toISOString().split('T')[0] // Default to today
             };
             newPreviews.push(previewInfo);
         });
@@ -220,6 +223,11 @@ export default function EditProjectModal({ show, onClose, project, categories = 
         setDocuments(newDocuments);
         setDocumentPreviews(newPreviews);
         setData('images', newDocuments);
+        
+        // Initialize document_dates array for new documents
+        const existingDates = data.document_dates || [];
+        const newDates = [...existingDates, ...files.map(() => new Date().toISOString().split('T')[0])];
+        setData('document_dates', newDates);
     };
     
     const removeDocument = (index) => {
@@ -229,12 +237,28 @@ export default function EditProjectModal({ show, onClose, project, categories = 
         setDocuments(newDocuments);
         setDocumentPreviews(newPreviews);
         setData('images', newDocuments);
+        
+        // Also remove the corresponding date from document_dates array
+        const documentDates = (data.document_dates || []).filter((_, i) => i !== index);
+        setData('document_dates', documentDates);
+    };
+    
+    const updateDocumentDate = (index, date) => {
+        const newPreviews = [...documentPreviews];
+        newPreviews[index].date = date;
+        setDocumentPreviews(newPreviews);
+        
+        // Update the document_dates array in form data
+        const documentDates = [...(data.document_dates || new Array(documents.length).fill(null))];
+        documentDates[index] = date;
+        setData('document_dates', documentDates);
     };
 
     const clearDocuments = () => {
         setDocuments([]);
         setDocumentPreviews([]);
         setData('images', []);
+        setData('document_dates', []);
     };
     
     const removeExistingDocument = (index) => {
@@ -247,8 +271,6 @@ export default function EditProjectModal({ show, onClose, project, categories = 
             const currentRemoved = data.removed_images || [];
             const updatedRemoved = [...currentRemoved, removedDocument.id];
             setData('removed_images', updatedRemoved);
-            console.log('Document marked for removal:', removedDocument.id, removedDocument.filename);
-            console.log('Current removed_images list:', updatedRemoved);
         }
     };
 
@@ -339,6 +361,13 @@ export default function EditProjectModal({ show, onClose, project, categories = 
         documents.forEach((document, index) => {
             formData.append(`images[${index}]`, document);
         });
+        
+        // Add document dates
+        if (data.document_dates && Array.isArray(data.document_dates)) {
+            data.document_dates.forEach((date, index) => {
+                formData.append(`document_dates[${index}]`, date);
+            });
+        }
         
         // Add removed images
         if (data.removed_images && Array.isArray(data.removed_images)) {
@@ -909,7 +938,7 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                                         />
                                     </label>
                                 </div>
-                                <p className="text-xs text-slate-500 mt-2">You can select multiple Word documents (.doc, .docx)</p>
+                                <p className="text-xs text-slate-500 mt-2">You can select multiple Word documents (.doc, .docx). Each document can have its own date.</p>
 
                                 {/* New Document Previews */}
                                 {documentPreviews.length > 0 && (
@@ -928,26 +957,45 @@ export default function EditProjectModal({ show, onClose, project, categories = 
                                         </div>
                                         <div className="space-y-2">
                                             {documentPreviews.map((preview, index) => (
-                                                <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
-                                                    <div className="flex items-center space-x-3">
-                                                        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                        </svg>
-                                                        <div>
-                                                            <p className="text-sm font-medium text-slate-800">{preview.name}</p>
-                                                            <p className="text-xs text-slate-500">{preview.size}</p>
+                                                <div key={index} className="p-3 bg-white rounded-lg border border-slate-200">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center space-x-3">
+                                                            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                            </svg>
+                                                            <div>
+                                                                <p className="text-sm font-medium text-slate-800">{preview.name}</p>
+                                                                <p className="text-xs text-slate-500">{preview.size}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-col items-end">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeDocument(index)}
+                                                                className="text-red-600 hover:text-red-800 transition-colors mb-2"
+                                                                title="Remove document"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                            <div className="w-32">
+                                                                <label className="block text-xs font-medium text-slate-700 mb-1">
+                                                                    Document Date
+                                                                </label>
+                                                                <input
+                                                                    type="date"
+                                                                    value={preview.date || ''}
+                                                                    onChange={(e) => updateDocumentDate(index, e.target.value)}
+                                                                    className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    title="Select the actual date when this document was created"
+                                                                />
+                                                                <p className="text-xs text-slate-500 mt-1 text-center">
+                                                                    Actual date
+                                                                </p>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeDocument(index)}
-                                                        className="text-red-500 hover:text-red-700 transition-colors"
-                                                        title="Remove document"
-                                                    >
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
