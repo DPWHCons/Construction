@@ -22,6 +22,14 @@ Route::get('/', function () {
 // Document download route (publicly accessible for download)
 Route::get('/documents/{id}/download', [DocumentController::class, 'download'])->name('documents.download');
 
+// Document preview route (publicly accessible for preview)
+Route::get('/document-preview', function (Request $request) {
+    return Inertia::render('DocumentPreview', [
+        'url' => $request->query('url'),
+        'filename' => $request->query('filename'),
+    ]);
+})->name('documents.preview');
+
 Route::middleware(['auth', 'session.activity'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
@@ -55,12 +63,6 @@ Route::middleware(['auth', 'session.activity'])->group(function () {
 
     // Gallery Routes
     Route::get('/gallery', [GalleryController::class, 'index'])->name('gallery.index');
-    Route::get('/document-preview', function (Request $request) {
-        return Inertia::render('DocumentPreview', [
-            'url' => $request->query('url'),
-            'filename' => $request->query('filename'),
-        ]);
-    })->name('documents.preview');
 
     // Archive Routes
     Route::get('/archive', [ArchiveController::class, 'index'])->name('archive.index');

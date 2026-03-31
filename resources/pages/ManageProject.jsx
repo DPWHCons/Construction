@@ -714,7 +714,6 @@ export default function ManageProject({ projects, categories, availableLetters, 
                 <div className="flex justify-end">
                     <div className="flex items-center gap-3" style={{ minWidth: '600px' }}>
                         <div className="relative flex-1">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input
                                 type="text"
                                 placeholder="Search by contract ID, project title, or category..."
