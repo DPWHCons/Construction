@@ -102,13 +102,14 @@ export default function Gallery({ projects }) {
     };
 
     const toggleYearExpansion = (year) => {
+        const yearStr = String(year);
         setExpandedYears(prev => {
             // If the clicked year is already expanded, close it
-            if (prev.has(year)) {
+            if (prev.has(yearStr)) {
                 return new Set();
             }
             // Otherwise, close all others and only expand the clicked year
-            return new Set([year]);
+            return new Set([yearStr]);
         });
     };
 
@@ -348,7 +349,7 @@ export default function Gallery({ projects }) {
         <PageLayout>
             <Head title="Gallery" />
             <div className="py-20">
-                <h1 className="text-3xl font-bold text-slate-900 font-montserrat leading-none" style={{ fontSize: '2rem', lineHeight: '0.8' }}>Gallery</h1>
+                <h1 className="text-3xl font-bold text-slate-900 font-montserrat leading-none" style={{ fontSize: '2rem', lineHeight: '0.8' }}>Gallery Overview</h1>
             </div>
 
             <div className="min-h-screen">
@@ -491,7 +492,9 @@ export default function Gallery({ projects }) {
                                             );
                                         });
 
-                                        if (filteredProjectsInGroup.length === 0 || year === 'Unknown Year') return null;
+                                        const shouldShow = selectedYear !== 'all' || expandedYears.has(String(year)) || searchTerm.trim();
+
+                                        if (filteredProjectsInGroup.length === 0 || year === 'Unknown Year' || !shouldShow) return null;
 
                                         return (
                                             <div key={groupKey} className="space-y-0">
@@ -666,7 +669,9 @@ export default function Gallery({ projects }) {
                                             );
                                         });
 
-                                        if (filteredProjectsInYear.length === 0 || year === 'Unknown Year') return null;
+                                        const shouldShow = selectedYear !== 'all' || expandedYears.has(String(year)) || searchTerm.trim();
+
+                                        if (filteredProjectsInYear.length === 0 || year === 'Unknown Year' || !shouldShow) return null;
 
                                         return (
                                             <div key={year} className="space-y-0">

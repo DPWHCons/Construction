@@ -58,6 +58,8 @@ class ArchiveController extends Controller
                 'filename' => $image->filename ?? $image->caption ?? 'Untitled Document',
                 'caption' => $image->caption ?? $image->filename ?? 'Untitled Document',
                 'originalProject' => $image->project->title ?? 'Unknown Project',
+                'project_year' => $image->project->project_year ?? 'N/A',
+                'contract_id' => $image->project->contract_id ?? 'N/A',
                 'deletedDate' => $image->archived_at ? $image->archived_at->format('M j, Y') : 'N/A',
                 'deletionReason' => 'Manually archived',
                 'archived_at' => $image->archived_at,

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { showSuccessToast, showErrorToast } from '../Utils/alerts';
+import { showSuccessToast, showErrorToast, showDocumentArchiveConfirmation } from '../Utils/alerts';
 import { Head, router } from '@inertiajs/react';
 
 export default function GalleryModal({ show, project, onClose }) {
@@ -9,12 +9,19 @@ export default function GalleryModal({ show, project, onClose }) {
     const [selectedDocument, setSelectedDocument] = useState(null); // For popup display
     const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // For shift-click range selection
     const [openMonths, setOpenMonths] = useState(new Set()); // For collapsible months
+    const [localImages, setLocalImages] = useState(project?.images || []); // Local state for images
+    const [isLoading, setIsLoading] = useState(false); // Loading state for archive operations
+
+    // Update local images when project prop changes
+    useEffect(() => {
+        setLocalImages(project?.images || []);
+    }, [project]);
 
     // Group documents by month
     const groupedDocuments = useMemo(() => {
-        if (!project?.images) return {};
+        if (!localImages || localImages.length === 0) return {};
 
-        return project.images.reduce((groups, doc) => {
+        return localImages.reduce((groups, doc) => {
             // Use document_date if available, fallback to created_at
             const dateSource = doc.document_date || doc.created_at;
             if (!dateSource) return groups;
@@ -30,7 +37,7 @@ export default function GalleryModal({ show, project, onClose }) {
 
             return groups;
         }, {});
-    }, [project?.images]);
+    }, [localImages]);
 
     // Sort documents within each month group (newest first)
     const sortedGroupedDocuments = useMemo(() => {
@@ -134,27 +141,27 @@ export default function GalleryModal({ show, project, onClose }) {
     };
 
     const navigateDocument = (direction) => {
-        if (!project.images || project.images.length === 0) return;
+        if (!localImages || localImages.length === 0) return;
 
         // Find current document index with multiple fallback methods
         let currentIndex = -1;
 
         // Method 1: Direct object comparison
-        currentIndex = project.images.findIndex(doc => doc === selectedDocument);
+        currentIndex = localImages.findIndex(doc => doc === selectedDocument);
 
         // Method 2: Compare by document path
         if (currentIndex === -1 && selectedDocument?.document) {
-            currentIndex = project.images.findIndex(doc => doc.document === selectedDocument.document);
+            currentIndex = localImages.findIndex(doc => doc.document === selectedDocument.document);
         }
 
         // Method 3: Compare by url
         if (currentIndex === -1 && selectedDocument?.url) {
-            currentIndex = project.images.findIndex(doc => doc.url === selectedDocument.url);
+            currentIndex = localImages.findIndex(doc => doc.url === selectedDocument.url);
         }
 
         // Method 4: Compare by id if available
         if (currentIndex === -1 && selectedDocument?.id) {
-            currentIndex = project.images.findIndex(doc => doc.id === selectedDocument.id);
+            currentIndex = localImages.findIndex(doc => doc.id === selectedDocument.id);
         }
 
         // If still not found, use first document
@@ -165,10 +172,10 @@ export default function GalleryModal({ show, project, onClose }) {
         let newIndex = currentIndex + direction;
 
         // Wrap around for circular navigation
-        if (newIndex < 0) newIndex = project.images.length - 1;
-        if (newIndex >= project.images.length) newIndex = 0;
+        if (newIndex < 0) newIndex = localImages.length - 1;
+        if (newIndex >= localImages.length) newIndex = 0;
 
-        setSelectedDocument(project.images[newIndex]);
+        setSelectedDocument(localImages[newIndex]);
     };
 
     const handleDocumentSelect = (index, isShiftClick = false) => {
@@ -195,10 +202,10 @@ export default function GalleryModal({ show, project, onClose }) {
     };
 
     const handleSelectAll = () => {
-        if (selectedDocuments.size === project.images?.length) {
+        if (selectedDocuments.size === localImages?.length) {
             setSelectedDocuments(new Set()); // Deselect all
         } else {
-            setSelectedDocuments(new Set(project.images?.map((_, index) => index))); // Select all
+            setSelectedDocuments(new Set(localImages?.map((_, index) => index))); // Select all
         }
     };
 
@@ -206,14 +213,16 @@ export default function GalleryModal({ show, project, onClose }) {
         if (selectedDocuments.size === 0) return;
 
         // Get selected document IDs
-        const documentIds = Array.from(selectedDocuments).map(index => project.images[index]?.id).filter(id => id);
+        const documentIds = Array.from(selectedDocuments).map(index => localImages[index]?.id).filter(id => id);
 
         if (documentIds.length === 0) {
             showErrorToast('No valid documents selected');
             return;
         }
 
-        if (!confirm(`Are you sure you want to archive ${documentIds.length} document(s)?`)) {
+        const result = await showDocumentArchiveConfirmation(`${documentIds.length} document${documentIds.length > 1 ? 's' : ''}`);
+        
+        if (!result.isConfirmed) {
             return;
         }
 
@@ -222,24 +231,39 @@ export default function GalleryModal({ show, project, onClose }) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({ image_ids: documentIds })
             });
 
-            if (response.ok) {
+            const responseText = await response.text();
+
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseError) {
+                showErrorToast('Server returned invalid response. Please refresh the page.');
+                setIsLoading(false);
+                return;
+            }
+
+            if (response.ok && data.success) {
                 showSuccessToast(`${documentIds.length} document(s) archived successfully`);
+                
+                // Remove archived documents from local state
+                const idsToRemove = documentIds.map(id => String(id));
+                setLocalImages(prevImages => prevImages.filter(img => !idsToRemove.includes(String(img.id))));
                 setSelectedDocuments(new Set());
                 setIsSelectionMode(false);
-                router.reload();
             } else {
-                const errorData = await response.text();
-                console.error('Archive failed:', response.status, errorData);
-                showErrorToast(`Failed to archive documents (${response.status})`);
+                const errorMsg = data.message || data.error || `Failed to archive (${response.status})`;
+                showErrorToast(errorMsg);
             }
         } catch (error) {
-            console.error('Error archiving documents:', error);
             showErrorToast('Error occurred while archiving documents');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -377,7 +401,7 @@ export default function GalleryModal({ show, project, onClose }) {
                                                         <div className={`grid gap-4 ml-4 ${displayMode === 'grid' ? 'grid-cols-[repeat(auto-fit,_minmax(120px,_1fr))]' : 'grid-cols-1'}`}>
                                                             {docs.map((document, docIndex) => {
                                                                 // Find the original index for selection
-                                                                const originalIndex = project.images?.findIndex(img => img.id === document.id) ?? -1;
+                                                                const originalIndex = localImages?.findIndex(img => img.id === document.id) ?? -1;
                                                                 return (
                                                                     <div
                                                                         key={docIndex}

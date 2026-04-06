@@ -192,10 +192,10 @@ export default function Archive({ archivedDocuments }) {
         setModalSelectedImages(new Set()); // Clear selections when toggling
     };
 
-    // Helper function to extract year from archived_at
-    const getArchiveYear = (image) => {
-        if (!image.archived_at) return "Unknown Year";
-        return new Date(image.archived_at).getFullYear();
+    // Helper function to get project year from archived document
+    const getProjectYear = (image) => {
+        if (!image.project_year || image.project_year === 'N/A') return 'Unknown Year';
+        return image.project_year;
     };
 
     // Group archived images by year and project
@@ -206,11 +206,12 @@ export default function Archive({ archivedDocuments }) {
                        archivedDocuments && typeof archivedDocuments.toArray === 'function' ? archivedDocuments.toArray() :
                        [];
         return images.reduce((groups, image) => {
-            const year = getArchiveYear(image) || 'Unknown Year';
+            const year = getProjectYear(image) || 'Unknown Year';
             const projectTitle = image.originalProject || 'Unknown Project';
+            const contractId = image.contract_id || 'N/A';
             const groupKey = `${year}__${projectTitle}`;
 
-            if (!groups[groupKey]) groups[groupKey] = { year, projectTitle, images: [] };
+            if (!groups[groupKey]) groups[groupKey] = { year, projectTitle, contractId, images: [] };
             groups[groupKey].images.push(image);
             return groups;
         }, {});
@@ -225,7 +226,7 @@ export default function Archive({ archivedDocuments }) {
         return ['all', ...new Set(images.map(img => img.originalProject))];
     }, [archivedDocuments]);
 
-    // Get available years for filter
+    // Get available years for filter - based on project_year
     const getAvailableYears = () => {
         const images = archivedDocuments && archivedDocuments.data ? archivedDocuments.data : 
                        archivedDocuments && Array.isArray(archivedDocuments) ? archivedDocuments :
@@ -233,7 +234,7 @@ export default function Archive({ archivedDocuments }) {
                        [];
         const years = new Set();
         images.forEach(image => {
-            const year = getArchiveYear(image);
+            const year = getProjectYear(image);
             if (year && year !== 'Unknown Year') {
                 years.add(String(year));
             }
@@ -268,8 +269,8 @@ export default function Archive({ archivedDocuments }) {
     };
 
     const openImageModal = (image, index) => {
-        setSelectedImage(image);
-        setCurrentImageIndex(index);
+        const previewUrl = `/document-preview?url=${encodeURIComponent(image.url)}&filename=${encodeURIComponent(image.filename || 'Document')}`;
+        window.open(previewUrl, '_blank', 'noopener,noreferrer');
     };
 
     const closeModal = () => {
@@ -327,7 +328,7 @@ export default function Archive({ archivedDocuments }) {
             // Select all
             const allKeys = new Set();
             allImages.forEach(image => {
-                const groupKey = `${getArchiveYear(image)}__${image.originalProject}`;
+                const groupKey = `${getProjectYear(image)}__${image.originalProject}`;
                 const imageIndex = allImages.findIndex(img => img.id === image.id);
                 const key = getImageKey(image, groupKey, imageIndex);
                 allKeys.add(key);
@@ -350,28 +351,50 @@ export default function Archive({ archivedDocuments }) {
 
     // Individual image restore function
     const handleRestoreImage = async (image) => {
-        setIsLoading(true);
-        
         try {
             const result = await showRestoreConfirmation(image.filename || 'Document');
             
             if (result.isConfirmed) {
-                router.post(route('archive.images.restore', image.id), {}, {
-                    onSuccess: (page) => {
+                setIsLoading(true);
+                console.log('Attempting to restore image:', image.id, image.filename);
+                
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/archive/images/${image.id}/restore`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    console.log('Restore response:', data);
+                    
+                    if (data.success) {
                         showSuccessToast(`Document "${image.filename || 'Untitled'}" restored successfully!`);
-                        window.location.reload();
-                    },
-                    onError: (errors) => {
-                        const errorMessage = errors?.message || errors?.error || 'Failed to restore image. Please try again.';
-                        showErrorToast(errorMessage);
-                        setIsLoading(false);
-                    },
-                    preserveState: false,
-                });
-            } else {
-                setIsLoading(false);
+                        // Remove the restored image from the current view immediately
+                        const imageElement = document.querySelector(`[data-image-id="${image.id}"]`);
+                        if (imageElement) {
+                            imageElement.style.opacity = '0.5';
+                            imageElement.style.pointerEvents = 'none';
+                            setTimeout(() => {
+                                imageElement.remove();
+                            }, 1000);
+                        }
+                    } else {
+                        showErrorToast(data.message || 'Failed to restore document');
+                    }
+                } catch (fetchError) {
+                    console.error('Fetch error:', fetchError);
+                    showErrorToast('Network error. Please try again.');
+                } finally {
+                    setIsLoading(false);
+                }
             }
         } catch (error) {
+            console.error('Restore catch error:', error);
             showErrorToast('An unexpected error occurred. Please try again.');
             setIsLoading(false);
         }
@@ -379,28 +402,50 @@ export default function Archive({ archivedDocuments }) {
 
     // Individual image delete function
     const handleDeleteImage = async (image) => {
-        setIsLoading(true);
-        
         try {
             const result = await showDeleteConfirmation(image.filename || 'Document', 'document');
             
             if (result.isConfirmed) {
-                router.delete(route('archive.images.delete', image.id), {}, {
-                    onSuccess: (page) => {
-                        showSuccessToast(`Document "${image.filename || 'Untitled'}" permanently deleted!`);
-                        window.location.reload();
-                    },
-                    onError: (errors) => {
-                        const errorMessage = errors?.message || errors?.error || 'Failed to delete image. Please try again.';
-                        showErrorToast(errorMessage);
-                        setIsLoading(false);
-                    },
-                    preserveState: false,
-                });
-            } else {
-                setIsLoading(false);
+                setIsLoading(true);
+                console.log('Attempting to delete image:', image.id, image.filename);
+                
+                try {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const response = await fetch(`/archive/images/${image.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    console.log('Delete response:', data);
+                    
+                    if (data.success) {
+                        showSuccessToast(`Document "${image.filename || 'Untitled'}" deleted successfully!`);
+                        // Remove the deleted image from the current view immediately
+                        const imageElement = document.querySelector(`[data-image-id="${image.id}"]`);
+                        if (imageElement) {
+                            imageElement.style.opacity = '0.5';
+                            imageElement.style.pointerEvents = 'none';
+                            setTimeout(() => {
+                                imageElement.remove();
+                            }, 1000);
+                        }
+                    } else {
+                        showErrorToast(data.message || 'Failed to delete document');
+                    }
+                } catch (fetchError) {
+                    console.error('Fetch error:', fetchError);
+                    showErrorToast('Network error. Please try again.');
+                } finally {
+                    setIsLoading(false);
+                }
             }
         } catch (error) {
+            console.error('Delete catch error:', error);
             showErrorToast('An unexpected error occurred. Please try again.');
             setIsLoading(false);
         }
@@ -591,7 +636,7 @@ export default function Archive({ archivedDocuments }) {
             <div>
                 {/* Search for Projects */}
                 <div className="p-4 mb-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-end">
                         <div className="relative">
                             <input
                                 type="text"
@@ -600,9 +645,6 @@ export default function Archive({ archivedDocuments }) {
                                 onChange={(e) => handleSearch(e.target.value)}
                                 className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#Eb3505] focus:border-transparent font-montserrat text-sm w-64"
                             />
-                        </div>
-                        <div className="text-sm text-slate-600">
-                            {archivedProjects?.total || 0} archived projects
                         </div>
                     </div>
                 </div>
@@ -632,12 +674,9 @@ export default function Archive({ archivedDocuments }) {
                                             Category
                                         </th>
                                         <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
                                             Archived Date
                                         </th>
-                                        <th className="px-6 py-4 text-center font-semibold text-slate-700 uppercase tracking-wider">
+                                        <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider text-center">
                                             Actions
                                         </th>
                                     </tr>
@@ -660,18 +699,6 @@ export default function Archive({ archivedDocuments }) {
                                                 {project.category?.name || 'Uncategorized'}
                                             </td>
 
-                                            {/* Status */}
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                    project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                                    project.status === 'ongoing' ? 'bg-green-100 text-green-800' :
-                                                    project.status === 'pending' ? 'bg-red-100 text-red-800' :
-                                                    'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                    {project.status}
-                                                </span>
-                                            </td>
-
                                             {/* Archived Date */}
                                             <td className="px-6 py-4 whitespace-nowrap text-slate-600">
                                                 {new Date(project.updated_at).toLocaleDateString()}
@@ -679,21 +706,23 @@ export default function Archive({ archivedDocuments }) {
 
                                             {/* Actions */}
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="flex items-center justify-center gap-3">
+                                                <div className="flex flex-col gap-2">
                                                     <button
                                                         onClick={() => handleRestore(project)}
-                                                        className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm"
+                                                        className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-green-200 text-green-600 rounded-lg hover:bg-green-50 transition-colors text-xs font-medium"
+                                                        title="Restore project"
                                                     >
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                                                         </svg>
                                                         Restore
                                                     </button>
                                                     <button
                                                         onClick={() => handlePermanentDelete(project)}
-                                                        className="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium shadow-sm"
+                                                        className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-xs font-medium"
+                                                        title="Delete project permanently"
                                                     >
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
                                                         Delete
@@ -793,49 +822,6 @@ export default function Archive({ archivedDocuments }) {
             }, { preserveState: true, replace: true });
         };
 
-        const handleRestore = async (category) => {
-            try {
-                const result = await showRestoreConfirmation(category.name);
-                
-                if (result.isConfirmed) {
-                    router.post(route('archive.categories.restore', category.id), {}, {
-                        onSuccess: (page) => {
-                            showSuccessToast(`Category "${category.name}" restored successfully!`);
-                            // Redirect to categories page to see the restored category
-                            window.location.href = route('categories.index');
-                        },
-                        onError: (errors) => {
-                            console.error('Category restore errors:', errors);
-                            const errorMessage = errors?.message || errors?.error || 'Failed to restore category. Please try again.';
-                            showErrorToast(errorMessage);
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Category restore error:', error);
-                showErrorToast('An unexpected error occurred. Please try again.');
-            }
-        };
-
-        const handlePermanentDelete = async (category) => {
-            try {
-                const result = await showDeleteConfirmation(category.name, 'category');
-                
-                if (result.isConfirmed) {
-                    router.delete(route('archive.categories.delete', category.id), {}, {
-                        onSuccess: () => {
-                            showSuccessToast(`Category "${category.name}" permanently deleted!`);
-                        },
-                        onError: (errors) => {
-                            showErrorToast('Failed to delete category. Please try again.');
-                        }
-                    });
-                }
-            } catch (error) {
-                showErrorToast('An unexpected error occurred. Please try again.');
-            }
-        };
-
         return (
             <div>
                 {/* Search for Categories */}
@@ -884,9 +870,6 @@ export default function Archive({ archivedDocuments }) {
                                         <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
                                             Archived Date
                                         </th>
-                                        <th className="px-6 py-4 text-center font-semibold text-slate-700 uppercase tracking-wider">
-                                            Actions
-                                        </th>
                                     </tr>
                                 </thead>
 
@@ -912,29 +895,6 @@ export default function Archive({ archivedDocuments }) {
                                                 {category.archived_at ? new Date(category.archived_at).toLocaleDateString() : 'N/A'}
                                             </td>
 
-                                            {/* Actions */}
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <button
-                                                        onClick={() => handleRestore(category)}
-                                                        className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm"
-                                                    >
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                                                        </svg>
-                                                        Restore
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handlePermanentDelete(category)}
-                                                        className="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium shadow-sm"
-                                                    >
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -958,7 +918,7 @@ export default function Archive({ archivedDocuments }) {
                                             : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
                                     }`}
                                     preserveScroll
-                                >
+                                  >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                                     </svg>
@@ -1117,9 +1077,6 @@ export default function Archive({ archivedDocuments }) {
                                         <th className="px-6 py-4 font-semibold text-slate-700 uppercase tracking-wider">
                                             Archived Date
                                         </th>
-                                        <th className="px-6 py-4 text-center font-semibold text-slate-700 uppercase tracking-wider">
-                                            Actions
-                                        </th>
                                     </tr>
                                 </thead>
 
@@ -1145,29 +1102,6 @@ export default function Archive({ archivedDocuments }) {
                                                 {contractor.archived_at ? new Date(contractor.archived_at).toLocaleDateString() : 'N/A'}
                                             </td>
 
-                                            {/* Actions */}
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <button
-                                                        onClick={() => handleRestore(contractor)}
-                                                        className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm"
-                                                    >
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                                                        </svg>
-                                                        Restore
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handlePermanentDelete(contractor)}
-                                                        className="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium shadow-sm"
-                                                    >
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1265,7 +1199,7 @@ export default function Archive({ archivedDocuments }) {
                 <div className="sticky top-0 z-30">
                     <div className="max-w-7xl mx-auto px-6 py-4">
                         <div className="flex gap-2">
-                            {['documents', 'projects', 'categories', 'contractors'].map((tab) => (
+                            {['documents', 'projects'].map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -1275,7 +1209,7 @@ export default function Archive({ archivedDocuments }) {
                                             : 'bg-gray-100 text-[#010066] hover:bg-gray-200'
                                     }`}
                                 >
-                                    {tab === 'documents' ? 'Archived Documents' : tab === 'projects' ? 'Archived Projects' : tab === 'categories' ? 'Archived Categories' : 'Archived Contractors'}
+                                    {tab === 'documents' ? 'Archived Documents' : 'Archived Projects'}
                                 </button>
                             ))}
                         </div>
@@ -1342,7 +1276,7 @@ export default function Archive({ archivedDocuments }) {
                                 </div>
                             </div>
                         </div>
-
+                        
                         {/* Archived Images Gallery */}
                         <div className="max-w-7xl mx-auto px-6 py-8">
                             {Object.keys(filteredGroups).length === 0 ? (
@@ -1358,21 +1292,10 @@ export default function Archive({ archivedDocuments }) {
                             ) : (
                                 <div className="space-y-12">
                                     {Object.entries(filteredGroups).map(([groupKey, group]) => {
-                                        const { year, projectTitle, images } = group;
+                                        const { year, projectTitle, contractId, images } = group;
                                         
                                         return (
                                             <div key={groupKey} className="space-y-0">
-                                                {/* Year Display - Bookmark Style */}
-                                                {year !== 'Unknown Year' && (
-                                                    <div className="relative flex items-stretch">
-                                                        <div className="bg-[#010066] rounded-tl-lg rounded-bl-lg px-3 py-2 shadow-sm w-1/5 flex-shrink-0 flex items-center justify-center">
-                                                            <h3 className="text-sm font-bold text-white font-montserrat whitespace-nowrap">
-                                                                {year}
-                                                            </h3>
-                                                        </div>
-                                                        <div className="flex-1"></div>
-                                                    </div>
-                                                )}
 
                                                 {/* Project Section */}
                                                 <div className="bg-white border border-slate-200 overflow-hidden shadow-sm">
@@ -1396,137 +1319,6 @@ export default function Archive({ archivedDocuments }) {
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-2">
-                                                                {/* Select All Checkbox - Always Visible */}
-                                                                <div className="flex items-center gap-2 px-3 py-1 bg-[#010066] text-white rounded-full text-xs font-montserrat">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={areProjectImagesSelected(groupKey, images)}
-                                                                        onChange={(e) => {
-                                                                            e.stopPropagation();
-                                                                            toggleProjectSelection(groupKey, images);
-                                                                        }}
-                                                                        className="w-3 h-3 text-white rounded focus:ring-[#010066] bg-[#010066] border-white"
-                                                                    />
-                                                                    <span className="text-white">
-                                                                        {areProjectImagesSelected(groupKey, images) ? 'Deselect All' : 'Select All'}
-                                                                    </span>
-                                                                </div>
-                                                                
-                                                                {/* Restore and Delete Buttons */}
-                                                                <button
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        try {
-                                                                            // Try multiple sources for CSRF token
-                                                                            let csrfToken = page.props.csrf_token;
-                                                                            
-                                                                            // If not in props, try meta tag
-                                                                            if (!csrfToken) {
-                                                                                csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-                                                                            }
-                                                                            
-                                                                            // If still not found, try to get from cookie (Laravel default)
-                                                                            if (!csrfToken) {
-                                                                                const cookies = document.cookie.split(';');
-                                                                                for (let cookie of cookies) {
-                                                                                    const [name, value] = cookie.trim().split('=');
-                                                                                    if (name === 'XSRF-TOKEN') {
-                                                                                        csrfToken = decodeURIComponent(value);
-                                                                                        break;
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                            
-                                                                            
-                                                                            if (!csrfToken) {
-                                                                                showErrorToast('Security token missing. Please refresh the page.');
-                                                                                return;
-                                                                            }
-                                                                            
-                                                                            const response = await fetch('/archive/projects/restore-images', {
-                                                                                method: 'POST',
-                                                                                headers: {
-                                                                                    'Content-Type': 'application/json',
-                                                                                    'X-CSRF-TOKEN': csrfToken,
-                                                                                    'Accept': 'application/json'
-                                                                                },
-                                                                                body: JSON.stringify({
-                                                                                    project_title: projectTitle
-                                                                                })
-                                                                            });
-                                                                            
-                                                                            
-                                                                            // Check if response is JSON
-                                                                            const contentType = response.headers.get('content-type');
-                                                                            if (!contentType || !contentType.includes('application/json')) {
-                                                                                const text = await response.text();
-                                                                                showErrorToast('Server error. Please try again.');
-                                                                                return;
-                                                                            }
-                                                                            
-                                                                            const result = await response.json();
-                                                                            
-                                                                            if (result.success) {
-                                                                                showSuccessToast(result.message);
-                                                                                // Refresh the page to show updated images
-                                                                                window.location.reload();
-                                                                            } else {
-                                                                                showErrorToast(result.message);
-                                                                            }
-                                                                        } catch (error) {
-                                                                            showErrorToast('Failed to restore images. Please try again.');
-                                                                        }
-                                                                    }}
-                                                                    className="px-2 py-1 bg-green-600 text-white rounded text-xs font-montserrat hover:bg-green-700 transition-all flex items-center gap-1"
-                                                                    title={`Restore all ${images.length} images`}
-                                                                >
-                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                                                                    </svg>
-                                                                    Restore
-                                                                </button>
-                                                                <button
-                                                                    onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        
-                                                                        const result = await showDeleteConfirmation(`${images.length} archived images from "${projectTitle}"`, 'images');
-                                                                        
-                                                                        if (result.isConfirmed) {
-                                                                            try {
-                                                                                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-                                                                                const response = await fetch('/archive/projects/delete-images', {
-                                                                                    method: 'POST',
-                                                                                    headers: {
-                                                                                        'Content-Type': 'application/json',
-                                                                                        'X-CSRF-TOKEN': csrfToken
-                                                                                    },
-                                                                                    body: JSON.stringify({
-                                                                                        project_title: projectTitle
-                                                                                    })
-                                                                                });
-                                                                                
-                                                                                const deleteResult = await response.json();
-                                                                                
-                                                                                if (deleteResult.success) {
-                                                                                    showSuccessToast(deleteResult.message);
-                                                                                    // Refresh the page to show updated images
-                                                                                    window.location.reload();
-                                                                                } else {
-                                                                                    showErrorToast(deleteResult.message);
-                                                                                }
-                                                                            } catch (error) {
-                                                                                showErrorToast('Failed to delete images. Please try again.');
-                                                                            }
-                                                                        }
-                                                                    }}
-                                                                    className="px-2 py-1 bg-red-600 text-white rounded text-xs font-montserrat hover:bg-red-700 transition-all flex items-center gap-1"
-                                                                    title={`Permanently delete all ${images.length} images`}
-                                                                >
-                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                    </svg>
-                                                                    Delete
-                                                                </button>
                                                                 <button
                                                                     onClick={() => toggleProjectExpansion(groupKey)}
                                                                     className="cursor-pointer hover:text-slate-600 transition-colors"
@@ -1546,107 +1338,128 @@ export default function Archive({ archivedDocuments }) {
                                                         </div>
                                                     </div>
 
-                                                    {/* Images Grid */}
+                                                    {/* Documents Table */}
                                                     <div
                                                         className="transition-max-height border border-slate-200 rounded-xl shadow-sm overflow-hidden"
-                                                        style={{ maxHeight: expandedProjects.has(groupKey) ? '1000px' : '0px' }}
+                                                        style={{ maxHeight: expandedProjects.has(groupKey) ? '2000px' : '0px' }}
                                                     >
-                                                        <div className="p-4">
-                                                            <div className="flex flex-wrap gap-3">
-                                                                {images.map((image, imageIndex) => {
-                                                                    const key = getImageKey(image, groupKey, imageIndex);
-                                                                    return (
-                                                                        <div
-                                                                            key={image.id}
-                                                                            className="group relative w-20 h-20 overflow-hidden rounded cursor-pointer bg-slate-50 hover:shadow-md transition-all duration-300 hover:scale-105 flex-shrink-0"
-                                                                            onClick={() => {
-                                                                                // If no images are selected yet, start selection with this image
-                                                                                if (selectedImages.size === 0) {
-                                                                                    const key = getImageKey(image, groupKey, imageIndex);
-                                                                                    setSelectedImages(new Set([key]));
-                                                                                } else {
-                                                                                    toggleImageSelection(image, groupKey, imageIndex);
-                                                                                }
-                                                                            }}
-                                                                        >
-                                                                            {/* Always show checkbox when images are selected OR when this image is the first one being selected */}
-                                                                            {(selectedImages.size > 0) && (
-                                                                                <div className="absolute top-1 left-1 z-10">
-                                                                                    <input
-                                                                                        type="checkbox"
-                                                                                        checked={selectedImages.has(key)}
-                                                                                        onChange={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            toggleImageSelection(image, groupKey, imageIndex);
-                                                                                        }}
-                                                                                        className="w-3 h-3 text-[#Eb3505] rounded focus:ring-[#Eb3505]"
-                                                                                    />
-                                                                                </div>
-                                                                            )}
-                                                                            <img
-                                                                                src={image.url}
-                                                                                alt={image.filename || `Archived document ${imageIndex + 1}`}
-                                                                                className="w-full h-full object-cover"
-                                                                                loading="lazy"
-                                                                                width="96"
-                                                                                height="96"
-                                                                            />
-                                                                            
-                                                                            {/* Hover Overlay */}
-                                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center">
-                                                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-center">
-                                                                                    <div className="flex flex-col gap-1">
-                                                                                        <div 
-                                                                                            className="cursor-pointer"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                openImageModal(image, imageIndex);
-                                                                                            }}
-                                                                                        >
-                                                                                            <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                                                                                            </svg>
-                                                                                        </div>
-                                                                                        <div className="flex gap-1 justify-center">
-                                                                                            <button
-                                                                                                onClick={(e) => {
+                                                        <div className="overflow-x-auto">
+                                                            <table className="w-full text-sm text-left bg-white">
+                                                                {/* Header */}
+                                                                <thead className="bg-slate-50 border-b border-slate-200">
+                                                                    <tr>
+                                                                        <th className="px-6 py-3 font-semibold text-slate-700 uppercase tracking-wider">
+                                                                            Contract ID
+                                                                        </th>
+                                                                        <th className="px-6 py-3 font-semibold text-slate-700 uppercase tracking-wider">
+                                                                            Project Title
+                                                                        </th>
+                                                                        <th className="px-6 py-3 font-semibold text-slate-700 uppercase tracking-wider">
+                                                                            Document Name
+                                                                        </th>
+                                                                        <th className="px-6 py-3 font-semibold text-slate-700 uppercase tracking-wider text-center">
+                                                                            Archived Date
+                                                                        </th>
+                                                                        <th className="px-6 py-3 font-semibold text-slate-700 uppercase tracking-wider text-center">
+                                                                            Actions
+                                                                        </th>
+                                                                    </tr>
+                                                                </thead>
+
+                                                                {/* Body */}
+                                                                <tbody className="divide-y divide-slate-100">
+                                                                    {images.map((image, imageIndex) => {
+                                                                        const key = getImageKey(image, groupKey, imageIndex);
+                                                                        return (
+                                                                            <tr
+                                                                                key={image.id}
+                                                                                data-image-id={image.id}
+                                                                                className="hover:bg-slate-50 transition-colors border-b border-slate-100"
+                                                                            >
+                                                                                {/* Contract ID */}
+                                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        {(selectedImages.size > 0) && (
+                                                                                            <input
+                                                                                                type="checkbox"
+                                                                                                checked={selectedImages.has(key)}
+                                                                                                onChange={(e) => {
                                                                                                     e.stopPropagation();
-                                                                                                    handleRestoreImage(image);
+                                                                                                    toggleImageSelection(image, groupKey, imageIndex);
                                                                                                 }}
-                                                                                                className="p-0.5 bg-green-600 rounded hover:bg-green-700 transition-colors"
-                                                                                                title="Restore this image"
-                                                                                            >
-                                                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                                                                                                </svg>
-                                                                                            </button>
-                                                                                            <button
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    handleDeleteImage(image);
-                                                                                                }}
-                                                                                                className="p-0.5 bg-red-600 rounded hover:bg-red-700 transition-colors"
-                                                                                                title="Delete this image permanently"
-                                                                                            >
-                                                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                                                </svg>
-                                                                                            </button>
+                                                                                                className="w-4 h-4 text-[#Eb3505] rounded focus:ring-[#Eb3505]"
+                                                                                            />
+                                                                                        )}
+                                                                                        <div className="font-mono text-slate-700 font-semibold">
+                                                                                            {contractId}
                                                                                         </div>
                                                                                     </div>
-                                                                                </div>
-                                                                            </div>
+                                                                                </td>
 
-                                                                            {/* Archive Date Badge */}
-                                                                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                                                <div className="bg-black/60 backdrop-blur-sm text-white text-xs px-1 py-0.5 rounded">
-                                                                                    {image.archived_at ? new Date(image.archived_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
+                                                                                {/* Project Title */}
+                                                                                <td className="px-6 py-4">
+                                                                                    <div className="font-medium text-slate-900">
+                                                                                        {projectTitle}
+                                                                                    </div>
+                                                                                </td>
+
+                                                                                {/* Document Name */}
+                                                                                <td className="px-6 py-4">
+                                                                                    <div className="font-medium text-slate-900">
+                                                                                        {image.filename || `Document ${imageIndex + 1}`}
+                                                                                    </div>
+                                                                                    {image.caption && (
+                                                                                        <div className="text-xs text-slate-500 mt-1">
+                                                                                            {image.caption}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </td>
+
+                                                                                {/* Archived Date */}
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-slate-600 text-center">
+                                                                                    {image.archived_at ? new Date(image.archived_at).toLocaleDateString() : 'N/A'}
+                                                                                </td>
+
+                                                                                {/* Actions */}
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                                                    <div className="flex flex-col gap-2">
+                                                                                        <button
+                                                                                            onClick={() => openImageModal(image, imageIndex)}
+                                                                                            className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-xs font-medium"
+                                                                                            title="View document"
+                                                                                        >
+                                                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                                                                            </svg>
+                                                                                            View
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={() => handleRestoreImage(image)}
+                                                                                            className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-green-200 text-green-600 rounded-lg hover:bg-green-50 transition-colors text-xs font-medium"
+                                                                                            title="Restore document"
+                                                                                        >
+                                                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                                                                            </svg>
+                                                                                            Restore
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={() => handleDeleteImage(image)}
+                                                                                            className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-xs font-medium"
+                                                                                            title="Delete document permanently"
+                                                                                        >
+                                                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                            </svg>
+                                                                                            Delete
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1660,13 +1473,7 @@ export default function Archive({ archivedDocuments }) {
                 ) : activeTab === 'projects' ? (
                     /* Projects Content */
                     <ArchivedProjectsContent archivedProjects={archivedProjects} />
-                ) : activeTab === 'categories' ? (
-                    /* Categories Content */
-                    <ArchivedCategoriesContent archivedCategories={archivedCategories} />
-                ) : (
-                    /* Contractors Content */
-                    <ArchivedContractorsContent archivedContractors={archivedContractors} />
-                )}
+                ) : null}
             </div>
 
             {/* Floating Action Buttons */}
@@ -1847,11 +1654,11 @@ export default function Archive({ archivedDocuments }) {
                             </div>
                         )}
                         
-                        <img
-                            src={selectedImage.url}
-                            alt={selectedImage.filename || 'Archived document'}
-                            className="w-full h-full object-contain rounded-lg cursor-pointer"
-                            onClick={() => isModalSelectionMode ? handleModalImageSelect(currentImageIndex) : null}
+                        <iframe
+                            src={`/document-preview?url=${encodeURIComponent(selectedImage.url)}&filename=${encodeURIComponent(selectedImage.filename || 'Document')}`}
+                            className="w-full h-full max-h-[80vh] rounded-lg"
+                            title={selectedImage.filename || 'Document Preview'}
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
                         />
                     </div>
                 </div>

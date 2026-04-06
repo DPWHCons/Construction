@@ -217,6 +217,26 @@ export const showArchiveConfirmation = (itemName, projectCount = 0) => {
     });
 };
 
+// Archive confirmation for documents in GalleryModal
+export const showDocumentArchiveConfirmation = (itemName) => {
+    return appleSwal.fire({
+        title: 'Archive document?',
+        html: `Are you sure you want to archive <strong>"${itemName}"</strong>?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Archive',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        customClass: {
+            actions: 'gap-3',
+            confirmButton:
+                'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 transition-all duration-150 active:scale-95',
+            cancelButton:
+                'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-300 transition-all duration-150 active:scale-95',
+        },
+    });
+};
+
 export const showRestoreConfirmation = (itemName) => {
     return appleSwal.fire({
         title: 'Restore?',
@@ -227,8 +247,11 @@ export const showRestoreConfirmation = (itemName) => {
         cancelButtonText: 'Cancel',
         reverseButtons: true,
         customClass: {
+            actions: 'gap-3',
             confirmButton:
                 'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all duration-150 active:scale-95',
+            cancelButton:
+                'inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-300 transition-all duration-150 active:scale-95',
         },
     });
 };
