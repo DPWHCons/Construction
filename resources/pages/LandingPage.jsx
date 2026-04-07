@@ -104,13 +104,17 @@ export default function LandingPage({ projects, availableYears = [], filters = {
         return grouped;
     }, [filteredProjects]);
 
-    const [openYears, setOpenYears] = useState({});
+    const [selectedYears, setSelectedYears] = useState(() => {
+        if (!availableYears || availableYears.length === 0) return [];
+        const mostRecentYear = Math.max(...availableYears.map(y => parseInt(y)));
+        return [String(mostRecentYear)];
+    });
+
+    const [pagination, setPagination] = useState({});
 
     const toggleYear = (y) => {
-        setOpenYears(prev => ({
-            ...prev,
-            [y]: !prev[y]
-        }));
+        setSelectedYears([y]);
+        setPagination({ [y]: 0 });
     };
 
     const formatCurrency = (amount) => {
@@ -219,7 +223,6 @@ export default function LandingPage({ projects, availableYears = [], filters = {
                 </div>
             </div>
 
-            {/* 📊 Modern Results */}
             <div className="max-w-7xl mx-auto px-6 py-8">
 
                 {Object.keys(groupedProjects).length === 0 ? (
@@ -237,49 +240,161 @@ export default function LandingPage({ projects, availableYears = [], filters = {
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-3">
-                        {Object.keys(groupedProjects)
-                            .sort((a, b) => parseInt(b) - parseInt(a))
-                            .map(y => (
-                                <div key={y} className="bg-white rounded-2xl border shadow-sm">
-                                    {/* YEAR HEADER */}
-                                    <div
+                    <div>
+                        {/* Year Pill Tabs */}
+                        <div className="flex flex-wrap gap-2 mb-16">
+                            {Object.keys(groupedProjects)
+                                .sort((a, b) => parseInt(b) - parseInt(a))
+                                .map(y => (
+                                    <button
+                                        key={y}
                                         onClick={() => toggleYear(y)}
-                                        className="cursor-pointer px-6 py-4 flex justify-between items-center border-b"
+                                        className={`px-4 py-2 rounded-full font-medium text-sm transition-all duration-200 border-2 flex items-center gap-2 ${
+                                            selectedYears.includes(y)
+                                                ? 'bg-blue-600 text-white border-blue-600'
+                                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300'
+                                        }`}
                                     >
-                                        <h2 className="font-semibold">{y}</h2>
-                                        <span>{openYears[y] ? '−' : '+'}</span>
-                                    </div>
+                                        <span>{y}</span>
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-white/20">
+                                            {groupedProjects[y]?.length || 0}
+                                        </span>
+                                    </button>
+                                ))}
+                        </div>
 
-                                    {/* PROJECT LIST */}
-                                    {openYears[y] && (
-                                        <div>
-                                            {groupedProjects[y].map(project => (
-                                                <div
-                                                    key={project.id}
-                                                    onClick={() => setSelectedProject(project)}
-                                                    className="flex justify-between items-center px-6 py-4 hover:bg-gray-50 cursor-pointer transition"
-                                                >
-                                                    <div className="flex items-center gap-4">
-                                                        <span className="font-mono text-sm text-gray-500 w-[100px]">
-                                                            {project.contract_id}
-                                                        </span>
+                        {/* Projects List */}
+                        {selectedYears.length === 0 ? (
+                            <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+                                <p className="text-gray-500">Select a year to view projects</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {Object.keys(groupedProjects)
+                                    .sort((a, b) => parseInt(b) - parseInt(a))
+                                    .filter(y => selectedYears.includes(y))
+                                    .map(y => (
+                                        <div key={y} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mt-8">
+                                            {/* Year Label */}
+                                            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-200">
+                                                <h3 className="text-sm font-bold text-gray-900">{y}</h3>
+                                            </div>
 
-                                                        <div>
-                                                            <p className="font-medium text-gray-900">
-                                                                {project.title}
-                                                            </p>
-                                                            <p className="text-xs text-gray-500">
-                                                                {project.category?.name}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                            {/* Projects */}
+                                            <div className="divide-y divide-gray-100 pt-6 pb-6">
+                                                {(() => {
+                                                    const currentPage = pagination[y] || 0;
+                                                    const itemsPerPage = 10;
+                                                    const projects = groupedProjects[y];
+                                                    const totalPages = Math.ceil(projects.length / itemsPerPage);
+                                                    const start = currentPage * itemsPerPage;
+                                                    const paginatedProjects = projects.slice(start, start + itemsPerPage);
+
+                                                    return (
+                                                        <>
+                                                            {paginatedProjects.map(project => (
+                                                                <div
+                                                                    key={project.id}
+                                                                    onClick={() => setSelectedProject(project)}
+                                                                    className="px-6 py-4 hover:bg-blue-50 cursor-pointer transition-colors duration-200"
+                                                                >
+                                                                    <div className="flex items-center justify-between gap-4">
+                                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                                            <span className="font-mono text-sm font-bold text-gray-900 bg-gray-100 px-3 py-1 rounded">
+                                                                                {project.contract_id}
+                                                                            </span>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className="font-medium text-gray-900 truncate">
+                                                                                    {project.title}
+                                                                                </p>
+                                                                                <p className="text-xs text-gray-500">
+                                                                                    {project.category?.name}
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                        <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+
+                                                            {/* Pagination Controls */}
+                                                            {totalPages > 1 && (
+                                                                <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-blue-50 border-t border-gray-100 flex flex-col items-center justify-center gap-4">
+                                                                    <div className="flex items-center justify-center gap-3 mt-4 px-4 py-2.5 bg-white/50 rounded-lg border border-gray-200/50">
+                                                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Showing</span>
+                                                                        <span className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md font-bold text-sm">{start + 1}</span>
+                                                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">to</span>
+                                                                        <span className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md font-bold text-sm">{Math.min(start + 10, groupedProjects[y].length)}</span>
+                                                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">of</span>
+                                                                        <span className="px-2.5 py-1 bg-gray-200 text-gray-700 rounded-md font-bold text-sm">{groupedProjects[y].length}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2 items-center">
+                                                                        <button
+                                                                            onClick={() => setPagination({ ...pagination, [y]: 0 })}
+                                                                            disabled={currentPage === 0}
+                                                                            className="text-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+                                                                            title="First page"
+                                                                        >
+                                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M19 5l-7 7 7 7" />
+                                                                            </svg>
+                                                                        </button>
+
+                                                                        <div className="flex gap-1">
+                                                                            {(() => {
+                                                                                const maxPagesToShow = 5;
+                                                                                let startPage = Math.max(0, currentPage - Math.floor(maxPagesToShow / 2));
+                                                                                let endPage = Math.min(totalPages - 1, startPage + maxPagesToShow - 1);
+                                                                                
+                                                                                // Adjust start page if we're at the end
+                                                                                if (endPage - startPage < maxPagesToShow - 1) {
+                                                                                    startPage = Math.max(0, endPage - maxPagesToShow + 1);
+                                                                                }
+
+                                                                                const pagesToShow = Array.from(
+                                                                                    { length: endPage - startPage + 1 },
+                                                                                    (_, i) => startPage + i
+                                                                                );
+
+                                                                                return pagesToShow.map(i => (
+                                                                                    <button
+                                                                                        key={i}
+                                                                                        onClick={() => setPagination({ ...pagination, [y]: i })}
+                                                                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                                                            currentPage === i
+                                                                                                ? 'bg-blue-600 text-white shadow-md'
+                                                                                                : 'bg-white border border-gray-200 text-gray-700 hover:border-blue-400 hover:text-blue-600'
+                                                                                        }`}
+                                                                                    >
+                                                                                        {i + 1}
+                                                                                    </button>
+                                                                                ));
+                                                                            })()}
+                                                                        </div>
+
+                                                                        <button
+                                                                            onClick={() => setPagination({ ...pagination, [y]: totalPages - 1 })}
+                                                                            disabled={currentPage === totalPages - 1}
+                                                                            className="text-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+                                                                            title="Last page"
+                                                                        >
+                                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 5l7 7-7 7" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+                                    ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

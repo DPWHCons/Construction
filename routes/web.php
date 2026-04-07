@@ -19,10 +19,8 @@ Route::get('/', function () {
     return redirect()->route('landing');
 });
 
-// Document download route (publicly accessible for download)
 Route::get('/documents/{id}/download', [DocumentController::class, 'download'])->name('documents.download');
 
-// Document preview route (publicly accessible for preview)
 Route::get('/document-preview', function (Request $request) {
     return Inertia::render('DocumentPreview', [
         'url' => $request->query('url'),
