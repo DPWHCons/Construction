@@ -34,7 +34,7 @@ const DPWHLoading = ({
 
             {/* Logo */}
             <img
-              src="/images/DPWH Logo  - 17 Gears.png"
+              src="/images/DPWH_logo.png"
               alt="DPWH Logo"
               className="w-16 h-16 object-contain"
             />

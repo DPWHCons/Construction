@@ -32,6 +32,27 @@ export default function Dashboard() {
         );
     };
 
+    // Prevent back button navigation - refresh instead
+    useEffect(() => {
+        // Push current state to history to prevent going back
+        window.history.pushState(null, '', window.location.href);
+        
+        const handlePopState = (e) => {
+            // Prevent default back navigation
+            e.preventDefault();
+            // Push state again to stay on current page
+            window.history.pushState(null, '', window.location.href);
+            // Refresh the page
+            window.location.reload();
+        };
+        
+        window.addEventListener('popstate', handlePopState);
+        
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, []);
+
     // Show success toast on component mount if user just logged in
     useEffect(() => {
         // Check URL parameter for login success

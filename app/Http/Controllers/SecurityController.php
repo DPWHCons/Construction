@@ -14,7 +14,11 @@ class SecurityController extends Controller
      */
     public function showLoginPage()
     {
-        return Inertia::render('SecurityPage');
+        $securityAuthenticated = session()->has('security_authenticated') || request()->cookie('security_authenticated') === 'true';
+        
+        return Inertia::render('SecurityPage', [
+            'securityAuthenticated' => $securityAuthenticated,
+        ]);
     }
 
     /**
@@ -27,7 +31,7 @@ class SecurityController extends Controller
         ]);
 
         // The security password - should be stored in .env in production
-        $securityPassword = 'Cdo1st';
+        $securityPassword = '1stDEO@2026';
 
         if ($request->password === $securityPassword) {
             // Set persistent cookie (30 days)

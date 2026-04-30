@@ -72,10 +72,6 @@ export default function Login({ status, canResetPassword }) {
 
         post(route('login'), {
             onSuccess: () => {
-                // Redirect with success parameter
-                window.location.href = route('dashboard') + '?login=success';
-            },
-            onFinish: () => {
                 reset('password');
 
                 // Clear previous feedback
@@ -85,10 +81,11 @@ export default function Login({ status, canResetPassword }) {
                 const urlParams = new URLSearchParams(window.location.search);
                 const fromLanding = urlParams.get('from_landing');
                 
+                // Use replace() to prevent login page from appearing in browser history
                 if (fromLanding === 'true') {
-                    window.location.href = 'http://127.0.0.1:8000/landing';
+                    window.location.replace('http://127.0.0.1:8000/landing');
                 } else {
-                    window.location.href = route('dashboard');
+                    window.location.replace(route('dashboard') + '?login=success');
                 }
             },
         });

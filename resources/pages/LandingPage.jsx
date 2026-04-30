@@ -15,7 +15,8 @@ export default function LandingPage({ projects, availableYears = [], filters = {
         const logout = urlParams.get('logout');
 
         if (logout === 'true') {
-            window.location.href = 'http://127.0.0.1:8000/landing';
+            // Use replace to remove the logout parameter from history
+            window.location.replace('http://127.0.0.1:8000/landing');
         }
     }, []);
 
@@ -136,7 +137,7 @@ export default function LandingPage({ projects, availableYears = [], filters = {
                         <div className="flex items-center gap-4">
                             <div className="relative">
                                 <img 
-                                    src="/images/DPWH Logo  - 17 Gears.png" 
+                                    src="/images/DPWH_logo.png" 
                                     alt="DPWH Logo" 
                                     className="h-10 w-auto transition-transform hover:scale-105"
                                 />

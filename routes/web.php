@@ -14,10 +14,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// Security routes
-Route::get('/security', [SecurityController::class, 'showLoginPage'])->name('security.login');
-Route::post('/security/verify', [SecurityController::class, 'verifyPassword'])->name('security.verify');
-Route::post('/security/logout', [SecurityController::class, 'logout'])->name('security.logout');
+// Security routes (nocache prevents back-button from showing cached security page)
+Route::middleware(['nocache'])->group(function () {
+    Route::get('/security', [SecurityController::class, 'showLoginPage'])->name('security.login');
+    Route::post('/security/verify', [SecurityController::class, 'verifyPassword'])->name('security.verify');
+    Route::post('/security/logout', [SecurityController::class, 'logout'])->name('security.logout');
+});
 
 Route::middleware(['security.password'])->group(function () {
     Route::get('/landing', [ProjectController::class, 'landing'])->name('landing');
@@ -44,7 +46,7 @@ Route::get('/document-preview', function (Request $request) {
     ]);
 })->name('documents.preview');
 
-Route::middleware(['auth', 'session.activity'])->group(function () {
+Route::middleware(['auth', 'session.activity', 'nocache'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
     // Category Routes
@@ -58,7 +60,7 @@ Route::middleware(['auth', 'session.activity'])->group(function () {
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 });
 
-Route::middleware(['auth', 'session.activity'])->group(function () {
+Route::middleware(['auth', 'session.activity', 'nocache'])->group(function () {
     // Project Export Routes
     Route::get('/projects/export', [ProjectExportController::class, 'export'])->name('projects.export');
     Route::post('/projects/import', [ProjectExportController::class, 'import'])->name('projects.import');
@@ -115,4 +117,7 @@ Route::middleware(['auth', 'session.activity'])->group(function () {
     Route::post('/project-images/archive', [ProjectController::class, 'archiveImages'])->name('project-images.archive');
 });
 
-require __DIR__.'/auth.php';
+// Auth routes with nocache to prevent back-button showing cached login
+Route::middleware(['nocache'])->group(function () {
+    require __DIR__.'/auth.php';
+});

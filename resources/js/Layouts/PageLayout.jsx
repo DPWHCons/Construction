@@ -70,7 +70,7 @@ export default function PageLayout({ header, children }) {
                             {/* DPWH Logo */}
                             <div className={`flex items-center ${sidebarOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
                                 <img 
-                                    src="/images/DPWH Logo  - 17 Gears.png" 
+                                    src="/images/DPWH_logo.png" 
                                     alt="DPWH Logo" 
                                     className="h-10 w-auto object-contain"
                                 />

@@ -14,7 +14,7 @@ export default function GuestLayout({ children }) {
 
         // Preload logo
         const logoImg = new Image();
-        logoImg.src = '/images/DPWH Logo  - 17 Gears.png';
+        logoImg.src = '/images/DPWH_logo.png';
         logoImg.onload = () => setLogoLoaded(true);
     }, []);
 
@@ -60,7 +60,7 @@ export default function GuestLayout({ children }) {
                                 
                                 {/* Actual logo image */}
                                 <img 
-                                    src="/images/DPWH Logo  - 17 Gears.png" 
+                                    src="/images/DPWH_logo.png" 
                                     alt="DPWH Logo"
                                     className={`w-20 h-20 mx-auto transition-opacity duration-500 ${logoLoaded ? 'opacity-100' : 'opacity-0'}`}
                                 />
