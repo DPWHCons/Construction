@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Register middleware alias
         $middleware->alias([
             'session.activity' => \App\Http\Middleware\CheckSessionActivity::class,
+            'security.password' => \App\Http\Middleware\CheckSecurityPassword::class,
         ]);
 
         //

@@ -8,15 +8,23 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ContractorController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\SecurityController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/landing', [ProjectController::class, 'landing'])->name('landing');
+// Security routes
+Route::get('/security', [SecurityController::class, 'showLoginPage'])->name('security.login');
+Route::post('/security/verify', [SecurityController::class, 'verifyPassword'])->name('security.verify');
+Route::post('/security/logout', [SecurityController::class, 'logout'])->name('security.logout');
+
+Route::middleware(['security.password'])->group(function () {
+    Route::get('/landing', [ProjectController::class, 'landing'])->name('landing');
+});
 
 Route::get('/', function () {
-    return redirect()->route('landing');
+    return redirect()->route('security.login');
 });
 
 // Document download route (publicly accessible for download)
