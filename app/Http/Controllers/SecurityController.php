@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Cookie;
 use Inertia\Inertia;
 
 class SecurityController extends Controller
@@ -29,7 +30,10 @@ class SecurityController extends Controller
         $securityPassword = 'Cdo1st';
 
         if ($request->password === $securityPassword) {
-            // Set session flag
+            // Set persistent cookie (30 days)
+            Cookie::queue('security_authenticated', 'true', 43200); // 43200 minutes = 30 days
+            
+            // Also set session for immediate use
             Session::put('security_authenticated', true);
             
             return redirect()->route('landing');
@@ -46,6 +50,7 @@ class SecurityController extends Controller
     public function logout()
     {
         Session::forget('security_authenticated');
+        Cookie::queue(Cookie::forget('security_authenticated'));
         return redirect()->route('security.login');
     }
 }
