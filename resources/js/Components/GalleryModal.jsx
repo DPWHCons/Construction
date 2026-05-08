@@ -1,21 +1,43 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { showSuccessToast, showErrorToast, showDocumentArchiveConfirmation } from '../Utils/alerts';
 import { Head, router } from '@inertiajs/react';
+import GallerySkeleton from './GallerySkeleton';
 
-export default function GalleryModal({ show, project, onClose }) {
+export default function GalleryModal({ show, project, onClose, onBackToDetails }) {
+    const [selectedDocument, setSelectedDocument] = useState(null);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [currentProjectIndex, setCurrentProjectIndex] = useState(0);
+    const [docxPreviewLoading, setDocxPreviewLoading] = useState(false);
+    const [docxPreviewError, setDocxPreviewError] = useState('');
+    const [isDocxPreview, setIsDocxPreview] = useState(false);
+    const [useIframeFallback, setUseIframeFallback] = useState(false);
+    const [modalScale, setModalScale] = useState(1);
+    const docxContainerRef = useRef(null);
+    const [selectedYear, setSelectedYear] = useState(null); // For year filtering
+    const [isLoading, setIsLoading] = useState(true); // Start with true, will be set to false when ready
     const [displayMode, setDisplayMode] = useState('grid'); // grid, list
     const [selectedDocuments, setSelectedDocuments] = useState(new Set()); // Set of selected document indices
     const [isSelectionMode, setIsSelectionMode] = useState(false); // For multi-select
-    const [selectedDocument, setSelectedDocument] = useState(null); // For popup display
     const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // For shift-click range selection
     const [openMonths, setOpenMonths] = useState(new Set()); // For collapsible months
     const [localImages, setLocalImages] = useState(project?.images || []); // Local state for images
-    const [isLoading, setIsLoading] = useState(false); // Loading state for archive operations
 
     // Update local images when project prop changes
     useEffect(() => {
         setLocalImages(project?.images || []);
+        setIsLoading(false); // Data is loaded, hide skeleton
     }, [project]);
+
+    // Extract unique years from documents
+    const availableYears = useMemo(() => {
+        const years = new Set();
+        localImages?.forEach(doc => {
+            const dateSource = doc.document_date || doc.created_at || new Date().toISOString();
+            const date = new Date(dateSource);
+            years.add(date.getFullYear());
+        });
+        return Array.from(years).sort((a, b) => b - a); // Latest first
+    }, [localImages]);
 
     // Group documents by month
     const groupedDocuments = useMemo(() => {
@@ -60,6 +82,12 @@ export default function GalleryModal({ show, project, onClose }) {
             return dateB - dateA;
         });
     }, [sortedGroupedDocuments]);
+
+    // Filter months by selected year
+    const filteredMonths = useMemo(() => {
+        if (!selectedYear) return sortedMonths;
+        return sortedMonths.filter(([monthKey]) => monthKey.includes(selectedYear.toString()));
+    }, [sortedMonths, selectedYear]);
 
     // Keyboard navigation for document popup
     useEffect(() => {
@@ -316,34 +344,35 @@ export default function GalleryModal({ show, project, onClose }) {
                                     </div>
                                 </div>
 
-                                {/* Right side: Display Mode Buttons + Selection Controls */}
+                                {/* Right side: Year Filter + Selection Controls */}
                                 <div className="flex items-center gap-2">
-                                    {/* Display Mode Buttons */}
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setDisplayMode('grid')}
-                                            className={`px-3 py-2 rounded-lg transition-all duration-300 ${displayMode === 'grid' ? 'bg-[#010066] text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            <GridIcon />
-                                        </button>
-                                        <button
-                                            onClick={() => setDisplayMode('list')}
-                                            className={`px-3 py-2 rounded-lg transition-all duration-300 ${displayMode === 'list' ? 'bg-[#010066] text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            <ListIcon />
-                                        </button>
-                                    </div>
+                                    {/* Year Navigation */}
+                                    {availableYears.length > 1 && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-medium text-gray-600">Filter year:</span>
+                                            <select
+                                                value={selectedYear || ''}
+                                                onChange={(e) => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
+                                                className="w-32 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#010066] focus:border-[#010066] transition-all"
+                                            >
+                                                <option value="">All Years</option>
+                                                {availableYears.map(year => (
+                                                    <option key={year} value={year}>
+                                                        {year}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
 
                                     {/* Selection Controls */}
                                     {isSelectionMode && (
                                         <button
                                             onClick={handleSelectAll}
                                             className="px-3 py-1 bg-[#010066] text-white rounded-full text-xs font-montserrat hover:bg-[#010066]/80 transition-all"
-                                            aria-label={selectedDocuments.size === project?.images?.length ? 'Deselect all documents' : 'Select all documents'}
+                                            aria-label={selectedDocuments.size === localImages?.length ? 'Deselect all documents' : 'Select all documents'}
                                         >
-                                            {selectedDocuments.size === project?.images?.length ? 'Deselect All' : 'Select All'}
+                                            {selectedDocuments.size === localImages?.length ? 'Deselect All' : 'Select All'}
                                         </button>
                                     )}
                                     <button
@@ -370,110 +399,84 @@ export default function GalleryModal({ show, project, onClose }) {
 
                             {/* Gallery Documents */}
                             <div className="p-4">
-                                {sortedMonths.length > 0 ? (
-                                    <div className="space-y-6">
-                                        {sortedMonths.map(([monthKey, docs]) => (
-                                            <div key={monthKey}>
+                                {isLoading ? (
+                                    <GallerySkeleton />
+                                ) : filteredMonths.length > 0 ? (
+                                    <div className="space-y-8">
+                                        {filteredMonths.map(([monthKey, docs]) => (
+                                            <React.Fragment key={monthKey}>
                                                 {/* Month Header */}
-                                                <div 
-                                                    className="flex items-center justify-between mb-3 cursor-pointer hover:bg-gray-100 p-2 rounded-lg transition-colors"
-                                                    onClick={() => toggleMonth(monthKey)}
-                                                >
-                                                    <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                                                        {monthKey}
-                                                        <svg 
-                                                            className={`w-4 h-4 transition-transform ${openMonths.has(monthKey) ? 'rotate-90' : ''}`}
-                                                            fill="none" 
-                                                            stroke="currentColor" 
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                                                        </svg>
-                                                    </h4>
-                                                    <span className="text-xs text-gray-500">
-                                                        {docs.length} document{docs.length > 1 ? 's' : ''}
-                                                    </span>
+                                                <div className="flex items-center gap-3 mb-4">
+                                                    <div className="h-px bg-gray-300 flex-1"></div>
+                                                    <div className="px-4 py-2 bg-gray-100 rounded-full">
+                                                        <h4 className="text-sm font-semibold text-gray-700">
+                                                            {monthKey}
+                                                        </h4>
+                                                    </div>
+                                                    <div className="h-px bg-gray-300 flex-1"></div>
                                                 </div>
-
-                                                {/* Documents */}
-                                                {openMonths.has(monthKey) && (
-                                                    docs.length > 0 ? (
-                                                        <div className={`grid gap-4 ml-4 ${displayMode === 'grid' ? 'grid-cols-[repeat(auto-fit,_minmax(120px,_1fr))]' : 'grid-cols-1'}`}>
-                                                            {docs.map((document, docIndex) => {
-                                                                // Find the original index for selection
-                                                                const originalIndex = localImages?.findIndex(img => img.id === document.id) ?? -1;
-                                                                return (
-                                                                    <div
-                                                                        key={docIndex}
-                                                                        className={`relative group cursor-pointer ${displayMode === 'grid' ? 'w-full aspect-[4/3]' : 'w-full h-24'
-                                                                            } ${selectedDocuments.has(originalIndex) ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-400 hover:shadow-lg hover:scale-[1.05] transition-all duration-300'
-                                                                            } rounded-lg border-2 border-slate-200 overflow-hidden flex-shrink-0 text-left`}
-                                                                        onClick={(e) => {
-                                                                            if (isSelectionMode) {
-                                                                                handleDocumentSelect(originalIndex, e.shiftKey);
-                                                                            } else {
-                                                                                handleDocumentClick(document);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        {/* Selection Checkbox */}
-                                                                        {isSelectionMode && (
-                                                                            <div className="absolute top-2 left-2">
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={selectedDocuments.has(originalIndex)}
-                                                                                    onChange={(e) => handleDocumentSelect(originalIndex, e.shiftKey)}
-                                                                                    className="w-5 h-5 text-red-600 rounded focus:ring-red-500"
-                                                                                    onClick={(e) => e.stopPropagation()}
-                                                                                />
-                                                                            </div>
-                                                                        )}
-                                                                        
-                                                                        {/* Document Content */}
-                                                                        <div className="p-2 h-full flex flex-col justify-between overflow-hidden">
-                                                                            <div className="flex justify-center mb-2">
-                                                                                <a
-                                                                                    href={document.url || '#'}
-                                                                                    download={document.filename || `document_${document.id}.docx`}
-                                                                                    className="hover:bg-blue-200 text-blue-600 hover:text-blue-800 transition-all duration-200 p-2 rounded-full relative z-10 shadow-sm hover:shadow-md"
-                                                                                    onClick={(e) => e.stopPropagation()}
-                                                                                    title="Download document"
-                                                                                >
-                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                                                    </svg>
-                                                                                </a>
-                                                                            </div>
-                                                                            <div className="text-center">
-                                                                                <p className="text-xs font-semibold text-black truncate leading-tight mb-1" title={document.filename || `Document ID: ${document.id}`}>
-                                                                                    {document.filename || `Document_${document.id}`}
-                                                                                </p>
-                                                                                <p className="text-[8px] text-slate-500 font-medium">
-                                                                                    {formatDocumentSize(document)}
-                                                                                </p>
-                                                                            </div>
+                                                {/* Documents Grid for this Month */}
+                                                <div className="grid gap-4 grid-cols-[repeat(auto-fill,_minmax(120px,_1fr))]">
+                                                    {docs.map((document, docIndex) => {
+                                                        // Find the original index for selection
+                                                        const originalIndex = localImages.findIndex(img => img.id === document.id) ?? -1;
+                                                        return (
+                                                            <React.Fragment key={docIndex}>
+                                                                <div
+                                                                    className={`relative group cursor-pointer w-full aspect-[4/3] ${selectedDocuments.has(originalIndex) ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-400 hover:shadow-lg hover:scale-[1.05] transition-all duration-300'
+                                                                        } rounded-lg border-2 border-slate-200 overflow-hidden flex-shrink-0 text-left`}
+                                                                >
+                                                                    {/* Checkbox - only visible in selection mode */}
+                                                                    {isSelectionMode && (
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={selectedDocuments.has(originalIndex)}
+                                                                            onChange={(e) => handleDocumentSelect(originalIndex, e.shiftKey)}
+                                                                            className="w-5 h-5 text-red-600 rounded focus:ring-red-500 absolute top-2 left-2 z-10"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        />
+                                                                    )}
+                                                                    
+                                                                    {/* Document Content */}
+                                                                    <div className="p-2 h-full flex flex-col justify-between overflow-hidden">
+                                                                        <div className="flex justify-center mb-2">
+                                                                            <a
+                                                                                href={document.url || '#'}
+                                                                                download={document.filename || `document_${document.id}.docx`}
+                                                                                className="hover:bg-blue-200 text-blue-600 hover:text-blue-800 transition-all duration-200 p-2 rounded-full relative z-10 shadow-sm hover:shadow-md"
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                title="Download document"
+                                                                            >
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                                                </svg>
+                                                                            </a>
                                                                         </div>
-
-                                                                        {/* Hover Overlay */}
-                                                                        <div className="absolute inset-0 bg-gray-200/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center rounded-lg">
+                                                                        <div className="text-center">
+                                                                            <p className="text-xs font-semibold text-black truncate leading-tight mb-1" title={document.filename || `Document ID: ${document.id}`}>
+                                                                                {document.filename || `Document_${document.id}`}
+                                                                            </p>
+                                                                            <p className="text-[8px] text-slate-500 font-medium">
+                                                                                {formatDocumentSize(document)}
+                                                                            </p>
                                                                         </div>
                                                                     </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-xs text-gray-400 italic py-4 ml-4">
-                                                            No documents uploaded this month
-                                                        </div>
-                                                    )
-                                                )}
-                                            </div>
+
+                                                                    {/* Hover Overlay */}
+                                                                    <div className="absolute inset-0 bg-gray-200/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center rounded-lg">
+                                                                    </div>
+                                                                </div>
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </React.Fragment>
                                         ))}
                                     </div>
                                 ) : (
                                     <div className="text-center py-8">
                                         <div className="text-gray-400 text-sm">
-                                            No documents found
+                                            {selectedYear ? `No documents found for ${selectedYear}` : 'No documents found'}
                                         </div>
                                     </div>
                                 )}

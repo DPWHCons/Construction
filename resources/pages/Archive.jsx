@@ -356,7 +356,6 @@ export default function Archive({ archivedDocuments }) {
             
             if (result.isConfirmed) {
                 setIsLoading(true);
-                console.log('Attempting to restore image:', image.id, image.filename);
                 
                 try {
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
@@ -370,8 +369,7 @@ export default function Archive({ archivedDocuments }) {
                     });
                     
                     const data = await response.json();
-                    console.log('Restore response:', data);
-                    
+                        
                     if (data.success) {
                         showSuccessToast(`Document "${image.filename || 'Untitled'}" restored successfully!`);
                         // Remove the restored image from the current view immediately
@@ -407,8 +405,7 @@ export default function Archive({ archivedDocuments }) {
             
             if (result.isConfirmed) {
                 setIsLoading(true);
-                console.log('Attempting to delete image:', image.id, image.filename);
-                
+
                 try {
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
                     const response = await fetch(`/archive/images/${image.id}`, {
@@ -421,8 +418,7 @@ export default function Archive({ archivedDocuments }) {
                     });
                     
                     const data = await response.json();
-                    console.log('Delete response:', data);
-                    
+
                     if (data.success) {
                         showSuccessToast(`Document "${image.filename || 'Untitled'}" deleted successfully!`);
                         // Remove the deleted image from the current view immediately

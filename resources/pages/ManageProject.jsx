@@ -860,7 +860,7 @@ export default function ManageProject({ projects, categories, availableLetters, 
                                                 return (
                                                     <div key={groupKey} className="bg-white rounded-xl border border-purple-200 overflow-hidden shadow-md">
                                                         <table className="w-full table-fixed">
-                                                            <thead style={{ backgroundColor: '#Eb3505' }}>
+                                                            <thead style={{ backgroundColor: '#010066' }}>
                                                                 <tr>
                                                                     <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Contract ID</th>
                                                                     <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Project Title</th>

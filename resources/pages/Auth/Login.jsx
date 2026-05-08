@@ -103,30 +103,28 @@ export default function Login({ status, canResetPassword }) {
                 />
             )}
             {status && (
-                <div className="mb-6 text-sm text-neutral-600 text-center">
+                <div className="mb-4 text-xs text-neutral-600 text-center">
                     {status}
                 </div>
             )}
 
-            <form onSubmit={submit} className="space-y-6">
+            <form onSubmit={submit} className="space-y-4">
+                {/* Username Field */}
                 <div>
-                    <InputLabel
-                        htmlFor="username"
-                        value="Username"
-                        className="text-sm text-neutral-700"
-                    />
-
                     <TextInput
                         id="username"
                         type="text"
                         name="username"
                         value={data.username}
-                        className="mt-2 w-full px-4 py-3 
-                        bg-white border border-neutral-200 
-                        rounded-lg text-neutral-900 
-                        focus:border-neutral-400 focus:ring-0 
-                        transition"
-                        autoComplete="username"
+                        className="w-full px-4 py-2.5 
+                        bg-white border border-slate-200 
+                        rounded-lg text-sm text-slate-900 
+                        focus:border-[#010066] focus:ring-1 focus:ring-[#010066]/20
+                        transition placeholder:text-slate-400"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck="false"
                         isFocused={true}
                         onChange={(e) => {
                             setData('username', e.target.value);
@@ -134,36 +132,29 @@ export default function Login({ status, canResetPassword }) {
                                 setFieldFeedback(prev => ({ ...prev, username: '' }));
                             }
                         }}
-                        placeholder="Enter your username"
+                        placeholder="Username"
                     />
                     {fieldFeedback.username && (
-                        <div className="mt-1 text-xs text-red-500 animate-pulse">
+                        <div className="mt-1 text-xs text-red-500">
                             {fieldFeedback.username}
                         </div>
                     )}
-
-                    <InputError message={errors.username} className="mt-2" />
+                    <InputError message={errors.username} className="mt-1" />
                 </div>
 
+                {/* Password Field */}
                 <div>
-                    <InputLabel
-                        htmlFor="password"
-                        value="Password"
-                        className="text-sm text-neutral-700"
-                    />
-
-                    <div className="relative mt-2">
+                    <div className="relative">
                         <TextInput
                             id="password"
                             type={showPassword ? 'text' : 'password'}
                             name="password"
                             value={data.password}
-                            className="w-full px-4 py-3
-            bg-white border border-neutral-200 
-            rounded-lg text-neutral-900 
-            focus:border-neutral-400 focus:ring-0 
-            transition"
-                            style={{ paddingRight: '48px' }}
+                            className="w-full px-4 py-2.5 pr-12
+                            bg-white border border-slate-200 
+                            rounded-lg text-sm text-slate-900 
+                            focus:border-[#010066] focus:ring-1 focus:ring-[#010066]/20
+                            transition placeholder:text-slate-400"
                             autoComplete="current-password"
                             onChange={(e) => {
                                 setData('password', e.target.value);
@@ -171,53 +162,48 @@ export default function Login({ status, canResetPassword }) {
                                     setFieldFeedback(prev => ({ ...prev, password: '' }));
                                 }
                             }}
-                            placeholder="Enter your password"
+                            placeholder="Password"
                         />
-
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute top-1/2 right-0 transform -translate-y-1/2 flex items-center text-neutral-400 hover:text-neutral-600 transition"
-                            style={{marginRight: '12px'}}>
+                            className="absolute text-slate-400 hover:text-slate-600 transition"
+                            style={{
+                                top: '50%',
+                                right: '12px',
+                                transform: 'translateY(-50%)'
+                            }}
+                        >
                             {showPassword ? (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59"
-                                    />
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59" />
                                 </svg>
                             ) : (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                    />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                    />
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                 </svg>
                             )}
                         </button>
                     </div>
-
-                    {/* Inline Feedback */}
                     {fieldFeedback.password && (
-                        <div className="mt-1 text-xs text-red-500 animate-pulse">
+                        <div className="mt-1 text-xs text-red-500">
                             {fieldFeedback.password}
                         </div>
                     )}
-
-                    <InputError message={errors.password} className="mt-2" />
+                    <InputError message={errors.password} className="mt-1" />
                 </div>
 
-                {/* Options */}
-                <div className="flex items-center justify-between text-sm">
-                    <label className="flex items-center gap-2 text-neutral-600">
+                {/* Options Row */}
+                <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
                         <Checkbox
                             name="remember"
                             checked={data.remember}
                             onChange={(e) =>
                                 setData('remember', e.target.checked)
                             }
-                            className="border-neutral-300"
+                            className="border-slate-300 rounded"
                         />
                         Remember me
                     </label>
@@ -226,41 +212,50 @@ export default function Login({ status, canResetPassword }) {
                         <button
                             type="button"
                             onClick={() => setShowForgotPasswordModal(true)}
-                            className="text-neutral-500 hover:text-neutral-700"
+                            className="text-xs text-[#010066] hover:underline"
                         >
-                            Forgot Password ?
+                            Forgot password?
                         </button>
                     )}
                 </div>
 
-                {/* Button */}
-                <PrimaryButton
-                    className={`w-full py-3 rounded-lg font-medium transition 
+                {/* Submit Button */}
+                <button
+                    type="submit"
+                    className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 
                     ${processing
-                            ? 'bg-neutral-300 text-white cursor-not-allowed'
-                            : 'bg-neutral-900 text-white hover:bg-neutral-800'
-                        }`}
+                        ? 'bg-slate-300 text-white cursor-not-allowed'
+                        : 'bg-[#010066] text-white hover:bg-[#010055] shadow-sm hover:shadow-md'
+                    }`}
                     disabled={processing}
                 >
-                    {processing ? 'Signing in...' : 'Sign In'}
-                </PrimaryButton>
+                    {processing ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Signing in...
+                        </span>
+                    ) : 'Sign In'}
+                </button>
 
                 {/* Browse Projects Link */}
-                <div className="mt-4 text-center">
+                <div className="pt-2 text-center border-t border-slate-100">
                     <Link
                         href="/landing"
-                        className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors duration-200 group"
+                        className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-[#010066] transition-colors"
                         onClick={(e) => {
-                            // Replace current history entry to prevent back button loop
                             e.preventDefault();
                             window.location.replace('/landing');
                         }}
                     >
-                        <span className="group-hover:translate-x-0.5 transition-transform duration-200">→</span>
-                        Browse DPWH Projects
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Browse Projects
                     </Link>
                 </div>
-
             </form>
 
             {/* Forgot Password Modal */}

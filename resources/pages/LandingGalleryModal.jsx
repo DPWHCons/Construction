@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { showSuccessToast, showErrorToast } from '../js/Utils/alerts';
 import { Head, router } from '@inertiajs/react';
 
 export default function LandingGalleryModal({ show, project, onClose, onBackToDetails }) {
     const [displayMode, setDisplayMode] = useState('grid'); // grid, list
     const [selectedDocument, setSelectedDocument] = useState(null); // For popup display
+    const [selectedYear, setSelectedYear] = useState(null); // For year filtering
 
     if (!show || !project) return null;
 
@@ -12,6 +13,67 @@ export default function LandingGalleryModal({ show, project, onClose, onBackToDe
         if (!document?.document) return 'Unknown size';
         return `${(document.document.length / (1024 * 1024)).toFixed(2)} MB`;
     };
+
+    // Extract unique years from documents
+    const availableYears = useMemo(() => {
+        if (!project?.images) return [];
+        const years = new Set();
+        project.images.forEach(doc => {
+            const dateSource = doc.document_date || doc.created_at || new Date().toISOString();
+            const date = new Date(dateSource);
+            years.add(date.getFullYear());
+        });
+        return Array.from(years).sort((a, b) => b - a); // Latest first
+    }, [project?.images]);
+
+    // Group documents by month
+    const groupedDocuments = useMemo(() => {
+        if (!project?.images || project.images.length === 0) return {};
+
+        return project.images.reduce((groups, doc) => {
+            const dateSource = doc.document_date || doc.created_at;
+            if (!dateSource) return groups;
+
+            const date = new Date(dateSource);
+            const year = date.getFullYear();
+            const month = date.toLocaleString('default', { month: 'long' });
+
+            const key = `${month} ${year}`;
+
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(doc);
+
+            return groups;
+        }, {});
+    }, [project?.images]);
+
+    // Sort documents within each month group (newest first)
+    const sortedGroupedDocuments = useMemo(() => {
+        const sorted = {};
+        Object.entries(groupedDocuments).forEach(([monthKey, docs]) => {
+            sorted[monthKey] = docs.sort((a, b) => {
+                const dateA = new Date(a.document_date || a.created_at);
+                const dateB = new Date(b.document_date || b.created_at);
+                return dateB - dateA; // Newest first
+            });
+        });
+        return sorted;
+    }, [groupedDocuments]);
+
+    // Sort months (latest first)
+    const sortedMonths = useMemo(() => {
+        return Object.entries(sortedGroupedDocuments).sort((a, b) => {
+            const dateA = new Date(a[1][0]?.document_date || a[1][0]?.created_at);
+            const dateB = new Date(b[1][0]?.document_date || b[1][0]?.created_at);
+            return dateB - dateA;
+        });
+    }, [sortedGroupedDocuments]);
+
+    // Filter months by selected year
+    const filteredMonths = useMemo(() => {
+        if (!selectedYear) return sortedMonths;
+        return sortedMonths.filter(([monthKey]) => monthKey.includes(selectedYear.toString()));
+    }, [sortedMonths, selectedYear]);
 
     const GridIcon = () => (
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -109,8 +171,24 @@ export default function LandingGalleryModal({ show, project, onClose, onBackToDe
                                     </div>
                                 </div>
 
-                                {/* Right side: Display Mode Buttons Only */}
+                                {/* Right side: Year Filter + Display Mode Buttons */}
                                 <div className="flex items-center gap-2">
+                                    {/* Year Filter */}
+                                    {availableYears.length > 0 && (
+                                        <div className="flex items-center gap-2 mr-2">
+                                            <span className="text-sm font-medium text-gray-600">Filter year:</span>
+                                            <select
+                                                value={selectedYear || ''}
+                                                onChange={(e) => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
+                                                className="w-32 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#010066] focus:border-[#010066] transition-all"
+                                            >
+                                                <option value="">All Years</option>
+                                                {availableYears.map(year => (
+                                                    <option key={year} value={year}>{year}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                     {/* Display Mode Buttons */}
                                     <div className="flex items-center gap-2">
                                         <button
@@ -133,57 +211,73 @@ export default function LandingGalleryModal({ show, project, onClose, onBackToDe
 
                             {/* Gallery Documents */}
                             <div className="p-4">
-                                {project.images && project.images.length > 0 ? (
-                                    <div className={`grid gap-4 ${displayMode === 'grid' ? 'grid-cols-6' : 'grid-cols-1'
-                                        }`}>
-                                        {project.images.map((document, index) => (
-                                            <div
-                                                key={index}
-                                                className={`relative group cursor-pointer ${displayMode === 'grid' ? 'w-52 h-26' : 'w-40 h-20'
-                                                    } hover:border-blue-400 hover:shadow-lg hover:scale-[1.05] transition-all duration-300
-                                            rounded-lg border-2 border-slate-200 overflow-hidden flex-shrink-0 text-left`}
-                                                onClick={() => handleDocumentClick(document)}
-                                            >
-                                                {/* Document Content */}
-                                                <div className="p-2 h-full flex flex-col justify-between pt-6">
-                                                    <div className="flex justify-center mb-2">
-                                                        <a
-                                                            href={document.url || '#'}
-                                                            download={document.filename || `document_${document.id}.docx`}
-                                                            className="hover:bg-blue-200 text-blue-600 hover:text-blue-800 transition-all duration-200 p-2 rounded-full relative z-10 shadow-sm hover:shadow-md"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            title="Download document"
+                                {filteredMonths.length > 0 ? (
+                                    <div className="space-y-8">
+                                        {filteredMonths.map(([monthKey, docs]) => (
+                                            <React.Fragment key={monthKey}>
+                                                {/* Month Header */}
+                                                <div className="flex items-center gap-3 mb-4">
+                                                    <div className="h-px bg-gray-300 flex-1"></div>
+                                                    <div className="px-4 py-2 bg-gray-100 rounded-full">
+                                                        <h4 className="text-sm font-semibold text-gray-700">
+                                                            {monthKey}
+                                                        </h4>
+                                                    </div>
+                                                    <div className="h-px bg-gray-300 flex-1"></div>
+                                                </div>
+                                                {/* Documents Grid for this Month */}
+                                                <div className={`grid gap-4 ${displayMode === 'grid' ? 'grid-cols-6' : 'grid-cols-1'}`}>
+                                                    {docs.map((document, index) => (
+                                                        <div
+                                                            key={index}
+                                                            className={`relative group cursor-pointer ${displayMode === 'grid' ? 'w-52 h-26' : 'w-40 h-20'
+                                                                } hover:border-blue-400 hover:shadow-lg hover:scale-[1.05] transition-all duration-300
+                                                        rounded-lg border-2 border-slate-200 overflow-hidden flex-shrink-0 text-left`}
+                                                            onClick={() => handleDocumentClick(document)}
                                                         >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                            </svg>
-                                                        </a>
-                                                    </div>
-                                                    <div className="text-center">
-                                                        <p className="text-xs font-semibold text-black truncate leading-tight mb-1" title={document.filename || `Document ID: ${document.id}`}>
-                                                            {document.filename || `Document_${document.id}`}
-                                                        </p>
-                                                        <p className="text-[8px] text-slate-500 font-medium">
-                                                            {formatDocumentSize(document)}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                                            {/* Document Content */}
+                                                            <div className="p-2 h-full flex flex-col justify-between pt-6">
+                                                                <div className="flex justify-center mb-2">
+                                                                    <a
+                                                                        href={document.url || '#'}
+                                                                        download={document.filename || `document_${document.id}.docx`}
+                                                                        className="hover:bg-blue-200 text-blue-600 hover:text-blue-800 transition-all duration-200 p-2 rounded-full relative z-10 shadow-sm hover:shadow-md"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        title="Download document"
+                                                                    >
+                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                                        </svg>
+                                                                    </a>
+                                                                </div>
+                                                                <div className="text-center">
+                                                                    <p className="text-xs font-semibold text-black truncate leading-tight mb-1" title={document.filename || `Document ID: ${document.id}`}>
+                                                                        {document.filename || `Document_${document.id}`}
+                                                                    </p>
+                                                                    <p className="text-[8px] text-slate-500 font-medium">
+                                                                        {formatDocumentSize(document)}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
 
-                                                {/* Hover Overlay */}
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/40 to-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
-                                                    <div className="text-white text-center">
-                                                        <svg className="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                        </svg>
-                                                        <span className="text-xs font-medium">Preview Document</span>
-                                                    </div>
+                                                            {/* Hover Overlay */}
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/40 to-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
+                                                                <div className="text-white text-center">
+                                                                    <svg className="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                                    </svg>
+                                                                    <span className="text-xs font-medium">Preview Document</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            </div>
+                                            </React.Fragment>
                                         ))}
                                     </div>
                                 ) : (
                                     <div className="text-center py-8 text-gray-500">
-                                        No documents available for this project
+                                        {selectedYear ? `No documents found for ${selectedYear}` : 'No documents available for this project'}
                                     </div>
                                 )}
                             </div>

@@ -30,7 +30,7 @@ const DPWHLoading = ({
             <div className="absolute inset-0 rounded-full border-[2px] border-gray-200/40"></div>
 
             {/* Animated top stroke */}
-            <div className="absolute inset-0 rounded-full border-[2px] border-transparent border-t-[#EB3505] animate-spin"></div>
+            <div className="absolute inset-0 rounded-full border-[2px] border-transparent border-t-[#EB3505] dpwh-spin"></div>
 
             {/* Logo */}
             <img
@@ -53,7 +53,7 @@ const DPWHLoading = ({
       </div>
 
       <style>{`
-        .animate-spin {
+        .dpwh-spin {
           animation: spin 1.5s linear infinite;
         }
         .animate-fadeIn {

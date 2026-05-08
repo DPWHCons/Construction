@@ -1,4 +1,4 @@
-import PageLayout from '@/Layouts/PageLayout';
+    import PageLayout from '@/Layouts/PageLayout';
 import { Head } from '@inertiajs/react';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import useAutoRefresh from '@/Hooks/useAutoRefresh';
@@ -35,6 +35,22 @@ export default function Gallery({ projects }) {
         }
         return new Set();
     });
+
+    // Auto-expand most recent year when projects load (fixes timing issue)
+    useEffect(() => {
+        if (projects.length > 0 && expandedYears.size === 0) {
+            const years = [...new Set(projects.map(p => {
+                const year = p.project_year;
+                return year && year !== 'Unknown Year' ? String(year) : null;
+            }).filter(Boolean))];
+
+            if (years.length > 0) {
+                years.sort((a, b) => parseInt(b) - parseInt(a));
+                setExpandedYears(new Set([years[0]]));
+            }
+        }
+    }, [projects]);
+
     const [showProjectGalleryModal, setShowProjectGalleryModal] = useState(false);
     const [selectedProjectForModal, setSelectedProjectForModal] = useState(null);
 
@@ -442,14 +458,7 @@ export default function Gallery({ projects }) {
                                                         img.caption?.toLowerCase().includes(searchTerm.toLowerCase())
                                                     );
                                                 });
-                                                
-                                                // Debug logging
-                                                console.log(`Year ${year}:`, {
-                                                    totalProjects: projectsInGroup.length,
-                                                    filteredProjects: filteredProjectsInGroup.length,
-                                                    shouldShow: year !== 'Unknown Year' && filteredProjectsInGroup.length > 0
-                                                });
-                                                
+
                                                 return year !== 'Unknown Year' && filteredProjectsInGroup.length > 0;
                                             })
                                             // Ensure descending order is maintained after filtering
@@ -461,12 +470,13 @@ export default function Gallery({ projects }) {
                                             })
                                             .map(([groupKey, group]) => {
                                                 const { year } = group;
+                                                const isActive = String(selectedYear) === String(year);
                                                 return (
                                                     <button
                                                         key={year}
-                                                        onClick={() => toggleYearExpansion(year)}
+                                                        onClick={() => setSelectedYear(isActive ? 'all' : String(year))}
                                                         className={`inline-flex items-center gap-2 px-4 py-2 rounded-full transition-colors font-montserrat font-medium text-sm shadow-sm hover:shadow-md ${
-                                                            expandedYears.has(String(year))
+                                                            isActive
                                                                 ? 'bg-[#Eb3505] text-white'
                                                                 : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
                                                         }`}
@@ -492,18 +502,19 @@ export default function Gallery({ projects }) {
                                             );
                                         });
 
-                                        const shouldShow = selectedYear !== 'all' || expandedYears.has(String(year)) || searchTerm.trim();
+                                        const isYearSelected = String(selectedYear) === String(year);
+                                        const shouldShow = isYearSelected || selectedYear === 'all' && expandedYears.has(String(year)) || searchTerm.trim();
 
                                         if (filteredProjectsInGroup.length === 0 || year === 'Unknown Year' || !shouldShow) return null;
 
                                         return (
                                             <div key={groupKey} className="space-y-0">
-                                                {/* Projects for this year - Collapsible */}
+                                                {/* Projects for this year - Collapsible (when All Years), Always open (when specific year selected) */}
                                                 <div
-                                                    className="transition-all duration-300 overflow-hidden"
+                                                    className={`transition-all duration-300 overflow-hidden ${isYearSelected ? '' : ''}`}
                                                     style={{
-                                                        maxHeight: expandedYears.has(String(year)) ? '2000px' : '0px',
-                                                        opacity: expandedYears.has(String(year)) ? 1 : 0
+                                                        maxHeight: isYearSelected || expandedYears.has(String(year)) ? '2000px' : '0px',
+                                                        opacity: isYearSelected || expandedYears.has(String(year)) ? 1 : 0
                                                     }}
                                                 >
                                                     {/* Table for Projects and Documents */}

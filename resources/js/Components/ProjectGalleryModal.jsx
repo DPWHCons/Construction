@@ -5,12 +5,11 @@ import GallerySkeleton from './GallerySkeleton';
 import Swal from 'sweetalert2';
 
 export default function ProjectGalleryModal({ show, project, onClose, onBackToDetails }) {
-    const [displayMode, setDisplayMode] = useState('grid'); // grid, list
     const [selectedDocuments, setSelectedDocuments] = useState(new Set()); // Set of selected document indices
     const [isSelectionMode, setIsSelectionMode] = useState(false); // For multi-select
     const [selectedDocument, setSelectedDocument] = useState(null); // For popup display
     const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // For shift-click range selection
-    const [openMonths, setOpenMonths] = useState(new Set()); // For collapsible months
+    const [selectedYear, setSelectedYear] = useState(null); // For year filtering
     const [isLoading, setIsLoading] = useState(true); // Start with true, will be set to false when ready
 
     // Group documents by month
@@ -20,7 +19,6 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
         }
 
         const result = project.images.reduce((groups, doc) => {
-            // Use document_date if available, fallback to created_at, default to today if both missing
             const dateSource = doc.document_date || doc.created_at || new Date().toISOString();
             if (!dateSource) return groups;
 
@@ -52,6 +50,17 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
         return sorted;
     }, [groupedDocuments]);
 
+    // Extract unique years from documents
+    const availableYears = useMemo(() => {
+        const years = new Set();
+        project?.images?.forEach(doc => {
+            const dateSource = doc.document_date || doc.created_at || new Date().toISOString();
+            const date = new Date(dateSource);
+            years.add(date.getFullYear());
+        });
+        return Array.from(years).sort((a, b) => b - a); // Latest first
+    }, [project?.images]);
+
     // Sort months (latest first)
     const sortedMonths = useMemo(() => {
         return Object.entries(sortedGroupedDocuments).sort((a, b) => {
@@ -60,6 +69,12 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
             return dateB - dateA;
         });
     }, [sortedGroupedDocuments]);
+
+    // Filter months by selected year
+    const filteredMonths = useMemo(() => {
+        if (!selectedYear) return sortedMonths;
+        return sortedMonths.filter(([monthKey]) => monthKey.includes(selectedYear.toString()));
+    }, [sortedMonths, selectedYear]);
 
     // Keyboard navigation for document popup
     useEffect(() => {
@@ -79,10 +94,9 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
         return () => window.removeEventListener('keydown', handleKey);
     }, [selectedDocument]);
 
-    // Handle loading state - turn off when data is ready
     useEffect(() => {
         if (!show) {
-            return; // Don't change loading state when modal is closed
+            return; 
         }
 
         // If no project or images, loading is done
@@ -130,12 +144,7 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
         </svg>
     );
 
-    const ListIcon = () => (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-    );
-
+    
     const handleDocumentClick = (document) => {
         if (isSelectionMode) return; // Don't show popup when in selection mode
 
@@ -312,8 +321,12 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                 onClick={onClose}
             >
                 <div
-                    className="bg-white rounded-xl shadow-2xl w-[900px] h-[600px] overflow-hidden border border-slate-200 flex flex-col"
+                    className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200"
                     onClick={(e) => e.stopPropagation()}
+                    style={{
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#cbd5e1 transparent'
+                    }}
                 >
                     {/* 🔥 Header */}
                     <div className="sticky top-0 flex items-center justify-between bg-gray-50 px-5 py-4 z-10 border-b border-gray-200">
@@ -324,16 +337,32 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                             </h3>
                         </div>
                         <div className="flex items-center gap-3">
+                            {project.images?.length > 0 && (
+                                <div className="inline-flex items-center bg-slate-200 rounded-full p-1">
+                                    <button
+                                        onClick={onBackToDetails}
+                                        className="px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 text-slate-600 hover:text-slate-900"
+                                    >
+                                        Details
+                                    </button>
+                                    <button
+                                        className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 flex items-center gap-1.5 ${
+                                            true
+                                                ? 'bg-[#010066] text-white shadow-sm'
+                                                : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        Gallery
+                                    </button>
+                                </div>
+                            )}
                             <button
-                                onClick={onBackToDetails}
-                                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                                onClick={onClose}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 transition-colors"
                             >
-                                Project Details
-                            </button>
-                            <button
-                            onClick={onClose}
-                            className="w-8 h-8 flex items-center justify-center rounded-full bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-800 transition-colors"
-                        >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -345,108 +374,101 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                     <div className="flex-1 relative overflow-hidden">
                         <div className="h-full overflow-y-auto bg-gray-50 rounded-b-xl shadow-lg">
                             {/* Sticky Gallery Header with Display Buttons */}
-                            <div className="p-4 pb-2 bg-gray-50 sticky top-0 z-10 flex items-center justify-between border-b border-slate-200">
-                                {/* Left side: Project title & contract */}
-                                <div>
-                                    <h4 className="text-lg font-semibold text-gray-900">{project.title}</h4>
-                                    <div className="flex flex-wrap gap-3 text-sm text-gray-500">
-                                        <span>Contract ID: {project.contract_id || '-'}</span>
+                            <div className="p-4 pb-2 bg-gray-50 sticky top-0 z-10 border-b border-slate-200">
+                                {/* Top Row: Project Info + Controls */}
+                                <div className="flex items-start justify-between gap-4 mb-3">
+                                    {/* Left side: Project title & contract */}
+                                    <div>
+                                        <h4 className="text-lg font-semibold text-gray-900">{project.title}</h4>
+                                        <div className="flex flex-wrap gap-3 text-sm text-gray-500">
+                                            <span>Contract ID: {project.contract_id || '-'}</span>
+                                        </div>
                                     </div>
-                                </div>
-
-                                {/* Right side: Display Mode Buttons + Selection Controls */}
-                                <div className="flex items-center gap-2">
-                                    {/* Display Mode Buttons */}
+                                    
+                                    {/* Right side: All Controls */}
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setDisplayMode('grid')}
-                                            className={`px-3 py-2 rounded-lg transition-all duration-300 ${displayMode === 'grid' ? 'bg-[#010066] text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            <GridIcon />
-                                        </button>
-                                        <button
-                                            onClick={() => setDisplayMode('list')}
-                                            className={`px-3 py-2 rounded-lg transition-all duration-300 ${displayMode === 'list' ? 'bg-[#010066] text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100'
-                                                }`}
-                                        >
-                                            <ListIcon />
-                                        </button>
-                                    </div>
+                                        {/* Year Navigation */}
+                                        {availableYears.length > 1 && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium text-gray-600">Filter year:</span>
+                                                <select
+                                                    value={selectedYear || ''}
+                                                    onChange={(e) => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
+                                                    className="w-32 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#010066] focus:border-[#010066] transition-all"
+                                                >
+                                                    <option value="">All Years</option>
+                                                    {availableYears.map(year => (
+                                                        <option key={year} value={year}>
+                                                            {year}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
 
-                                    {/* Selection Controls */}
-                                    {isSelectionMode && (
+                                        {/* Selection Controls */}
+                                        {isSelectionMode && (
+                                            <button
+                                                onClick={handleSelectAll}
+                                                className="px-3 py-1 bg-[#010066] text-white rounded-full text-xs font-montserrat hover:bg-[#010066]/80 transition-all"
+                                                aria-label={selectedDocuments.size === project?.images?.length ? 'Deselect all documents' : 'Select all documents'}
+                                            >
+                                                {selectedDocuments.size === project?.images?.length ? 'Deselect All' : 'Select All'}
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={handleSelectAll}
-                                            className="px-3 py-1 bg-[#010066] text-white rounded-full text-xs font-montserrat hover:bg-[#010066]/80 transition-all"
-                                            aria-label={selectedDocuments.size === project?.images?.length ? 'Deselect all documents' : 'Select all documents'}
+                                            onClick={toggleSelectionMode}
+                                            className={`px-3 py-1 rounded-full text-xs font-montserrat transition-all flex items-center gap-1 ${isSelectionMode
+                                                    ? 'bg-gray-500 text-white hover:bg-gray-600'
+                                                    : 'bg-red-500 text-white hover:bg-red-600'
+                                                }`}
+                                            aria-label={isSelectionMode ? 'Cancel selection mode' : 'Enter archive selection mode'}
                                         >
-                                            {selectedDocuments.size === project?.images?.length ? 'Deselect All' : 'Select All'}
+                                            {isSelectionMode ? 'Cancel' : 'Archive'}
                                         </button>
-                                    )}
-                                    <button
-                                        onClick={toggleSelectionMode}
-                                        className={`px-3 py-1 rounded-full text-xs font-montserrat transition-all flex items-center gap-1 ${isSelectionMode
-                                                ? 'bg-gray-500 text-white hover:bg-gray-600'
-                                                : 'bg-red-500 text-white hover:bg-red-600'
-                                            }`}
-                                        aria-label={isSelectionMode ? 'Cancel selection mode' : 'Enter archive selection mode'}
-                                    >
-                                        {isSelectionMode ? 'Cancel' : 'Archive'}
-                                    </button>
-                                    {isSelectionMode && selectedDocuments.size > 0 && (
-                                        <button
-                                            onClick={handleDeleteDocuments}
-                                            className="px-3 py-1 bg-red-600 text-white rounded-full text-xs font-montserrat hover:bg-red-700 transition-all"
-                                            aria-label={`Archive ${selectedDocuments.size} selected documents`}
-                                        >
-                                            Archive ({selectedDocuments.size})
-                                        </button>
-                                    )}
+                                        {isSelectionMode && selectedDocuments.size > 0 && (
+                                            <button
+                                                onClick={handleDeleteDocuments}
+                                                className="px-3 py-1 bg-red-600 text-white rounded-full text-xs font-montserrat hover:bg-red-700 transition-all"
+                                                aria-label={`Archive ${selectedDocuments.size} selected documents`}
+                                            >
+                                                Archive ({selectedDocuments.size})
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Gallery Documents */}
                             <div className="p-4">
                                 {isLoading ? (
-                                    <GallerySkeleton displayMode={displayMode} />
-                                ) : sortedMonths.length > 0 ? (
-                                    <div className="space-y-6">
-                                        {sortedMonths.map(([monthKey, docs]) => (
-                                            <div key={monthKey}>
-                                                {/* Month Header */}
-                                                <div 
-                                                    className="flex items-center justify-between mb-3 cursor-pointer hover:bg-gray-100 p-2 rounded-lg transition-colors"
-                                                    onClick={() => toggleMonth(monthKey)}
-                                                >
-                                                    <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                                                        {monthKey}
-                                                        <svg 
-                                                            className={`w-4 h-4 transition-transform ${openMonths.has(monthKey) ? 'rotate-90' : ''}`}
-                                                            fill="none" 
-                                                            stroke="currentColor" 
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                                                        </svg>
-                                                    </h4>
-                                                    <span className="text-xs text-gray-500">
-                                                        {docs.length} document{docs.length > 1 ? 's' : ''}
-                                                    </span>
+                                    <GallerySkeleton />
+                                ) : filteredMonths.length > 0 ? (
+                                    <div className="space-y-8">
+                                        {filteredMonths.map(([monthKey, docs]) => (
+                                            <React.Fragment key={monthKey}>
+                                                <div>
+                                                {/* Simple Month Separator */}
+                                                <div className="flex items-center gap-3 mb-4">
+                                                    <div className="h-px bg-gray-300 flex-1"></div>
+                                                    <div className="px-4 py-2 bg-gray-100 rounded-full">
+                                                        <h4 className="text-sm font-semibold text-gray-700">
+                                                            {monthKey}
+                                                        </h4>
+                                                    </div>
+                                                    <div className="h-px bg-gray-300 flex-1"></div>
                                                 </div>
 
                                                 {/* Documents */}
-                                                {openMonths.has(monthKey) && (
-                                                    docs.length > 0 ? (
-                                                        <div className={`grid gap-4 ml-4 ${displayMode === 'grid' ? 'grid-cols-[repeat(auto-fit,_minmax(120px,_1fr))]' : 'grid-cols-1'}`}>
+                                                {docs.length > 0 ? (
+                                                    <div className="grid gap-4 ml-4 grid-cols-[repeat(auto-fill,_minmax(120px,_1fr))]">
                                                             {docs.map((document, docIndex) => {
                                                                 // Find the original index for selection
                                                                 const originalIndex = project.images?.findIndex(img => img.id === document.id) ?? -1;
                                                                 return (
                                                                     <div
                                                                         key={docIndex}
-                                                                        className={`relative group cursor-pointer ${displayMode === 'grid' ? 'w-full aspect-[4/3]' : 'w-full h-24'
-                                                                            } ${selectedDocuments.has(originalIndex) ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-400 hover:shadow-lg hover:scale-[1.05] transition-all duration-300'
+                                                                        className={`relative group cursor-pointer w-full aspect-[4/3] ${selectedDocuments.has(originalIndex) ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-400 hover:shadow-lg hover:scale-[1.05] transition-all duration-300'
                                                                             } rounded-lg border-2 border-slate-200 overflow-hidden flex-shrink-0 text-left`}
                                                                         onClick={(e) => {
                                                                             if (isSelectionMode) {
@@ -502,18 +524,18 @@ export default function ProjectGalleryModal({ show, project, onClose, onBackToDe
                                                             })}
                                                         </div>
                                                     ) : (
-                                                        <div className="text-xs text-gray-400 italic py-4 ml-4">
+                                                        <div className="text-xs text-gray-400 italic py-4 text-center">
                                                             No documents uploaded this month
                                                         </div>
-                                                    )
-                                                )}
-                                            </div>
+                                                    )}
+                                                </div>
+                                            </React.Fragment>
                                         ))}
                                     </div>
                                 ) : (
                                     <div className="text-center py-8">
                                         <div className="text-gray-400 text-sm">
-                                            No documents found
+                                            {selectedYear ? `No documents found for ${selectedYear}` : 'No documents found'}
                                         </div>
                                     </div>
                                 )}

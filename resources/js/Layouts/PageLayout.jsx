@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SessionTimeoutWarning from '../Components/SessionTimeoutWarning';
 import UserGuide from '../Components/UserGuide';
 import { Toaster } from 'react-hot-toast';
@@ -30,19 +30,30 @@ export default function PageLayout({ header, children }) {
     const user = usePage().props.auth.user;
     const url = usePage().props.url || '';
     
+    // Mobile detection
+    const [isMobile, setIsMobile] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+    
     // Sidebar width configurations
     const sidebarWidths = {
-        expanded: 'w-72', // 288px - wider for better content display
-        collapsed: 'w-20', // 80px - icon only
+        expanded: 'w-72',
+        collapsed: 'w-20',
     };
     
     // Corresponding margin values for main content
     const contentMargins = {
-        expanded: 'lg:ml-72', // Match sidebar expanded width
-        collapsed: 'lg:ml-20', // Match sidebar collapsed width
+        expanded: 'lg:ml-72',
+        collapsed: 'lg:ml-20',
     };
     
-    // Initialize sidebar state from localStorage
+    // Initialize sidebar state from localStorage (desktop only)
     const [sidebarOpen, setSidebarOpen] = useState(() => {
         const saved = localStorage.getItem('sidebarOpen');
         return saved !== null ? JSON.parse(saved) : false;
@@ -50,25 +61,67 @@ export default function PageLayout({ header, children }) {
     
     // Save sidebar state to localStorage whenever it changes
     const handleSidebarToggle = () => {
-        const newState = !sidebarOpen;
-        setSidebarOpen(newState);
-        localStorage.setItem('sidebarOpen', JSON.stringify(newState));
+        if (isMobile) {
+            setMobileMenuOpen(!mobileMenuOpen);
+        } else {
+            const newState = !sidebarOpen;
+            setSidebarOpen(newState);
+            localStorage.setItem('sidebarOpen', JSON.stringify(newState));
+        }
     };
+    
+    const closeMobileMenu = () => setMobileMenuOpen(false);
     
     const [expandedMenus, setExpandedMenus] = useState({});
     const [showUserMenu, setShowUserMenu] = useState(false);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
+            {/* Mobile Header */}
+            <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-md border-b border-gray-200 px-4 py-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <img 
+                            src="/images/DPWH_logo.png" 
+                            alt="DPWH Logo" 
+                            className="h-8 w-auto object-contain"
+                        />
+                        <span className="text-sm font-bold text-[#010066]">DPWH PMS</span>
+                    </div>
+                    <button
+                        onClick={handleSidebarToggle}
+                        className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {/* Mobile Menu Overlay */}
+            {isMobile && mobileMenuOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    onClick={closeMobileMenu}
+                />
+            )}
+
             {/* Main Content Area */}
-            <div className="flex pt-4">
-                {/* Modern White Sidebar */}
-                <aside className={`${sidebarOpen ? sidebarWidths.expanded : sidebarWidths.collapsed} bg-white transition-all duration-500 ease-in-out fixed left-0 top-0 bottom-0 z-40 shadow-lg border-r border-gray-200`}>
+            <div className="flex pt-0 lg:pt-4">
+                {/* Modern White Sidebar - Desktop: fixed, Mobile: overlay slide-in */}
+                <aside className={`
+                    bg-white transition-all duration-300 ease-out shadow-lg border-r border-gray-200 z-40
+                    ${isMobile 
+                        ? `fixed left-0 top-0 bottom-0 w-72 transform ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:hidden`
+                        : `fixed left-0 top-0 bottom-0 hidden lg:block ${sidebarOpen ? sidebarWidths.expanded : sidebarWidths.collapsed}`
+                    }
+                `}>
                     {/* Sidebar Header */}
                     <div className="p-4 border-b border-gray-100">
                         <div className="flex items-center justify-between">
                             {/* DPWH Logo */}
-                            <div className={`flex items-center ${sidebarOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
+                            <div className={`flex items-center ${(isMobile || sidebarOpen) ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
                                 <img 
                                     src="/images/DPWH_logo.png" 
                                     alt="DPWH Logo" 
@@ -76,16 +129,21 @@ export default function PageLayout({ header, children }) {
                                 />
                             </div>
                             
-                            {/* Burger Menu Button */}
+                            {/* Close Button (Mobile) / Toggle Button (Desktop) */}
                             <button
                                 onClick={handleSidebarToggle}
-                                className="flex items-center text-gray-500 hover:text-gray-800 transition-all duration-300 group"
+                                className="flex items-center text-gray-500 hover:text-gray-800 transition-all duration-300 group p-1"
                             >
                                 <div className="relative">
-                                    <div className="absolute inset-0 bg-gray-100 rounded-lg blur-sm opacity-0 group-hover:opacity-40 transition-opacity duration-300"></div>
-                                    <svg className="relative w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                    </svg>
+                                    {isMobile ? (
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    ) : (
+                                        <svg className="relative w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                        </svg>
+                                    )}
                                 </div>
                             </button>
                         </div>
@@ -97,16 +155,17 @@ export default function PageLayout({ header, children }) {
                         <div>
                             <Link
                                 href={route('dashboard')}
-                                className={`group flex items-center ${sidebarOpen ? 'px-4' : 'justify-center'} py-3 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                                onClick={isMobile ? closeMobileMenu : undefined}
+                                className={`group flex items-center ${(isMobile || sidebarOpen) ? 'px-4' : 'justify-center'} py-3 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
                                     route().current('dashboard')
-                                        ? 'bg-[#010066] text-white shadow-md transform scale-105'
-                                        : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white hover:shadow-md hover:transform hover:scale-105'
+                                        ? 'bg-[#010066] text-white'
+                                        : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white'
                                 }`}
                             >
                                 <svg className={`relative w-4 h-4 ${sidebarOpen ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001 1v-4a1 1 0 011 1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                                 </svg>
-                                {sidebarOpen && (
+                                {(isMobile || sidebarOpen) && (
                                     <span className="relative font-medium">Dashboard</span>
                                 )}
                             </Link>
@@ -115,16 +174,17 @@ export default function PageLayout({ header, children }) {
                         {/* Projects Menu */}
                         <Link
                             href={route('projects.index')}
-                            className={`group flex items-center ${sidebarOpen ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                            onClick={isMobile ? closeMobileMenu : undefined}
+                            className={`group flex items-center ${(isMobile || sidebarOpen) ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
                                 route().current('projects.*')
-                                    ? 'bg-[#010066] text-white shadow-md transform scale-105'
-                                        : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white hover:shadow-md hover:transform hover:scale-105'
+                                    ? 'bg-[#010066] text-white'
+                                        : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white'
                             }`}
                         >
                             <svg className={`relative w-4 h-4 ${sidebarOpen ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                             </svg>
-                            {sidebarOpen && (
+                            {(isMobile || sidebarOpen) && (
                                 <span className="relative font-medium flex-1 text-left">Manage Project</span>
                             )}
                         </Link>
@@ -132,16 +192,17 @@ export default function PageLayout({ header, children }) {
                         {/* Gallery Menu */}
                         <Link
                             href={route('gallery.index')}
-                            className={`group flex items-center ${sidebarOpen ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                            onClick={isMobile ? closeMobileMenu : undefined}
+                            className={`group flex items-center ${(isMobile || sidebarOpen) ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
                                 route().current('gallery.*')
-                                    ? 'bg-[#010066] text-white shadow-md transform scale-105'
-                                    : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white hover:shadow-md hover:transform hover:scale-105'
+                                    ? 'bg-[#010066] text-white'
+                                    : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white'
                             }`}
                         >
                             <svg className={`relative w-4 h-4 ${sidebarOpen ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            {sidebarOpen && (
+                            {(isMobile || sidebarOpen) && (
                                 <span className="relative font-medium flex-1 text-left">Gallery</span>
                             )}
                         </Link>
@@ -149,16 +210,17 @@ export default function PageLayout({ header, children }) {
                         {/* Categories Menu */}
                         <Link
                             href={route('categories.index')}
-                            className={`group flex items-center ${sidebarOpen ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                            onClick={isMobile ? closeMobileMenu : undefined}
+                            className={`group flex items-center ${(isMobile || sidebarOpen) ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
                                 route().current('categories.*')
-                                    ? 'bg-[#010066] text-white shadow-md transform scale-105'
-                                    : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white hover:shadow-md hover:transform hover:scale-105'
+                                    ? 'bg-[#010066] text-white'
+                                    : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white'
                             }`}
                         >
                             <svg className={`relative w-4 h-4 ${sidebarOpen ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                             </svg>
-                            {sidebarOpen && (
+                            {(isMobile || sidebarOpen) && (
                                 <span className="relative font-medium flex-1 text-left">Categories</span>
                             )}
                         </Link>
@@ -166,16 +228,17 @@ export default function PageLayout({ header, children }) {
                         {/* Contractors Menu */}
                         <Link
                             href={route('contractors.index')}
-                            className={`group flex items-center ${sidebarOpen ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                            onClick={isMobile ? closeMobileMenu : undefined}
+                            className={`group flex items-center ${(isMobile || sidebarOpen) ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
                                 route().current('contractors.*')
-                                    ? 'bg-[#010066] text-white shadow-md transform scale-105'
-                                    : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white hover:shadow-md hover:transform hover:scale-105'
+                                    ? 'bg-[#010066] text-white'
+                                    : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white'
                             }`}
                         >
                             <svg className={`relative w-4 h-4 ${sidebarOpen ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
-                            {sidebarOpen && (
+                            {(isMobile || sidebarOpen) && (
                                 <span className="relative font-medium">Contractors</span>
                             )}
                         </Link>
@@ -183,16 +246,17 @@ export default function PageLayout({ header, children }) {
                           {/* Archive Menu */}
                         <Link
                             href={route('archive.index')}
-                            className={`group flex items-center ${sidebarOpen ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
+                            onClick={isMobile ? closeMobileMenu : undefined}
+                            className={`group flex items-center ${(isMobile || sidebarOpen) ? 'px-3' : 'justify-center'} py-2.5 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden ${
                                 route().current('archive.*')
-                                    ? 'bg-[#010066] text-white shadow-md transform scale-105'
-                                    : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white hover:shadow-md hover:transform hover:scale-105'
+                                    ? 'bg-[#010066] text-white'
+                                    : 'text-gray-600 hover:bg-[#1a1a8c] hover:text-white'
                             }`}
                         >
                             <svg className={`relative w-4 h-4 ${sidebarOpen ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                             </svg>
-                            {sidebarOpen && (
+                            {(isMobile || sidebarOpen) && (
                                 <span className="relative font-medium flex-1 text-left">Archive</span>
                             )}
                         </Link>
@@ -209,12 +273,13 @@ export default function PageLayout({ header, children }) {
                             href={route('logout')}
                             method="post"
                             as="button"
-                            className={`w-full group flex items-center ${sidebarOpen ? 'px-4' : 'justify-center'} py-3 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden text-gray-600 hover:bg-[#1a1a8c] hover:text-white hover:shadow-md hover:transform hover:scale-105 mt-3`}
+                            onClick={isMobile ? closeMobileMenu : undefined}
+                            className={`w-full group flex items-center ${(isMobile || sidebarOpen) ? 'px-4' : 'justify-center'} py-3 text-sm font-medium rounded-xl transition-all duration-300 relative overflow-hidden text-gray-600 hover:bg-[#1a1a8c] hover:text-white mt-3`}
                         >
-                            <svg className={`relative w-4 h-4 ${sidebarOpen ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className={`relative w-4 h-4 ${(isMobile || sidebarOpen) ? 'mr-3' : ''} transition-all duration-300`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                             </svg>
-                            {sidebarOpen && (
+                            {(isMobile || sidebarOpen) && (
                                 <span className="relative font-medium">LOGOUT</span>
                             )}
                         </Link>
@@ -222,16 +287,19 @@ export default function PageLayout({ header, children }) {
                 </aside>
 
                 {/* Main Content */}
-                <main className={`flex-1 transition-all duration-500 ease-in-out ${sidebarOpen ? contentMargins.expanded : contentMargins.collapsed} overflow-y-auto`}>
+                <main className={`
+                    flex-1 transition-all duration-300 ease-out overflow-y-auto w-full
+                    ${isMobile ? 'ml-0 pt-16' : (sidebarOpen ? contentMargins.expanded : contentMargins.collapsed)}
+                `}>
                     {header && (
                         <div className="bg-white/60 backdrop-blur-sm border-b border-white/20 shadow-sm">
-                            <div className="mx-auto max-w-7xl px-6 lg:px-8 py-4">
+                            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
                                 {header}
                             </div>
                         </div>
                     )}
-                    <div className="p-6">
-                        <div className="px-6 lg:px-8">
+                    <div className="p-4 sm:p-6">
+                        <div className="px-0 sm:px-4 lg:px-8">
                             <AnimatePresence mode="wait">
                                 <motion.div
                                     key={url}
