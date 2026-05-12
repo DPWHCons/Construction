@@ -26,12 +26,8 @@ Route::middleware(['security.password'])->group(function () {
 });
 
 Route::get('/', function () {
-    // Check if user is already authenticated via session or cookie
-    if (session()->has('security_authenticated') || request()->cookie('security_authenticated') === 'true') {
-        // If authenticated via cookie, also set session for current request
-        if (request()->cookie('security_authenticated') === 'true' && !session()->has('security_authenticated')) {
-            session()->put('security_authenticated', true);
-        }
+    // Check if user is already authenticated via session only (no persistent cookies)
+    if (session()->has('security_authenticated')) {
         return redirect()->route('landing');
     }
     return redirect()->route('security.login');

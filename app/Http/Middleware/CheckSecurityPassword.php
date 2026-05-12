@@ -15,17 +15,11 @@ class CheckSecurityPassword
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if the user has already entered the security password (session or cookie)
-        $isAuthenticated = session()->has('security_authenticated') || 
-                          $request->cookie('security_authenticated') === 'true';
+        // Check if the user has already entered the security password (session only)
+        $isAuthenticated = session()->has('security_authenticated');
 
         if (!$isAuthenticated) {
             return redirect()->route('security.login');
-        }
-
-        // If authenticated via cookie, also set session for current request
-        if ($request->cookie('security_authenticated') === 'true' && !session()->has('security_authenticated')) {
-            session()->put('security_authenticated', true);
         }
 
         return $next($request);

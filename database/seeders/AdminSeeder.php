@@ -16,18 +16,18 @@ class AdminSeeder extends Seeder
     {
         // Create or update the default admin user
         User::updateOrCreate(
-            ['email' => 'admin'],
+            ['email' => 'admin@dpwh.com'],
             [
                 'name' => 'DPWH Administrator',
-                'email' => 'admin',
-                'username' => 'admin',
-                'password' => Hash::make('admin123'),
+                'email' => 'admin@dpwh.com',
+                'username' => 'admin@dpwh.com',
+                'password' => Hash::make('dpwh2026'),
                 'email_verified_at' => now(),
             ]
         );
 
         $this->command->info('Default admin user created successfully!');
-        $this->command->info('Email: admin');
-        $this->command->info('Password: admin123');
+        $this->command->info('Email: admin@dpwh.com');
+        $this->command->info('Password: dpwh2026');
     }
 }

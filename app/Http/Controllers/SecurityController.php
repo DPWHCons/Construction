@@ -14,7 +14,7 @@ class SecurityController extends Controller
      */
     public function showLoginPage()
     {
-        $securityAuthenticated = session()->has('security_authenticated') || request()->cookie('security_authenticated') === 'true';
+        $securityAuthenticated = session()->has('security_authenticated');
         
         return Inertia::render('SecurityPage', [
             'securityAuthenticated' => $securityAuthenticated,
@@ -31,14 +31,15 @@ class SecurityController extends Controller
         ]);
 
         // The security password - should be stored in .env in production
-        $securityPassword = '1stDEO@2026';
+        $securityPassword = env('SECURITY_PASSWORD', 'CDO1stDEO_2026');
 
         if ($request->password === $securityPassword) {
-            // Set persistent cookie (30 days)
-            Cookie::queue('security_authenticated', 'true', 43200); // 43200 minutes = 30 days
+            // Clear any existing security session first
+            Session::forget('security_authenticated');
             
-            // Also set session for immediate use
+            // Only set session (no persistent cookie - requires login every visit)
             Session::put('security_authenticated', true);
+            Session::save(); // Force session save to prevent race conditions
             
             return redirect()->route('landing');
         }
@@ -54,7 +55,6 @@ class SecurityController extends Controller
     public function logout()
     {
         Session::forget('security_authenticated');
-        Cookie::queue(Cookie::forget('security_authenticated'));
         return redirect()->route('security.login');
     }
 }
